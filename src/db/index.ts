@@ -22,3 +22,4 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export const db = drizzle(pool);
+import("drizzle-orm/node-postgres/migrator").then(({ migrate }) => migrate(db, { migrationsFolder: "drizzle" }).catch(() => {}));
