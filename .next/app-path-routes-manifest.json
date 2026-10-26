@@ -1,0 +1,13 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/auth/route": "/api/auth",
+  "/api/files/[id]/route": "/api/files/[id]",
+  "/api/health/route": "/api/health",
+  "/api/items/[resource]/[id]/route": "/api/items/[resource]/[id]",
+  "/api/items/[resource]/route": "/api/items/[resource]",
+  "/api/profile/route": "/api/profile",
+  "/api/workspace/route": "/api/workspace",
+  "/manifest.webmanifest/route": "/manifest.webmanifest",
+  "/page": "/"
+}
