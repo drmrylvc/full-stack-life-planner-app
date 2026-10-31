@@ -144,16 +144,15 @@ const formId = "editor-form-id";
                         }
 
 
-                  if (addToCalendar) {
+                                    if (addToCalendar) {
+                                      data.time = time;
+                                      data.date = selectedDays.length > 0 ? nextOccurrenceISO(selectedDays, time) : (planDate || date);
+                                      data.repeat = "weekly";
+                                      // Arka yüzün (Zod) tanımadığı ve hata fırlattığı "days" ve "repeatDays" satırları tamamen kaldırıldı.
+                                    } else {
+                                      data.date = planDate || date;
+                                    }
 
-                    data.time = time;
-                    data.date = selectedDays.length > 0 ? nextOccurrenceISO(selectedDays, time) : (planDate || date);
-                    data.repeat = "weekly";
-                    (data as any).days = selectedDays.map(String);
-                    (data as any).repeatDays = selectedDays.map(String);
-                  } else {
-                    data.date = planDate || date;
-                  }
 
 
 
@@ -189,8 +188,7 @@ title: `🔄 Routine: ${title.trim()}`,                                         
                                                      description: description,
                                                      time: time,
 date: day === (date ? new Date(date + "T00:00:00").getDay() : new Date().getDay()) ? date : nextOccurrenceISO(day, time),                                                     repeat: "weekly",
-                                                     days: [String(day)],
-                                                     repeatDays: [String(day)],
+
                                                      repeatCount: 52
                                                    }
                                                  };
