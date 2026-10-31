@@ -11,7 +11,7 @@ import Dashboard from "./dashboard";
 import { LanguageMenu } from "./language-menu";
 import { MobileAccessDialog } from "./mobile-access-dialog";
 import { SearchDialog } from "./search-dialog";
-import { AddAnythingDialog, EditorDialog, FilePreviewDialog } from "./editor-dialogs";
+import { AddAnythingDialog, EditorDialog } from "./editor-dialogs";
 import ResourceViews from "./resource-views";
 import { Brand, EmptyState, Spinner } from "./ui";
 import { useWorkspace } from "./use-workspace";
@@ -20,6 +20,21 @@ import { TaskEditor } from "./task-editor";
 interface InstallPrompt extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+// 🗓️ HAFTALIK TEKRARLAYAN GÖREVLERİ GÜN BAZINDA FİLTRELEME YARDIMCISI
+function isItemDueToday(item: PlannerItem, checkDateStr: string): boolean {
+  // 1. Eğer statik bir günü varsa doğrudan kontrol et
+  if (item.data.date) {
+    return item.data.date === checkDateStr;
+  }
+  // 2. Eğer haftalık bir rutin ise gün indeksini eşleştir
+  if (item.data.repeat === "weekly" && (item.data.days || (item.data as any).repeatDays)) {
+    const targetDate = new Date(checkDateStr);
+    const currentDayIndex = targetDate.getDay(); // 0 (Pz) - 6 (Ct)
+    const daysList = item.data.days || (item.data as any).repeatDays || [];
+    return daysList.map(String).includes(String(currentDayIndex));
+  }
+  return false;
 }
 
 export default function Planner() {
@@ -130,7 +145,7 @@ export default function Planner() {
 
   async function handleEditorSave(value: EditorState, input: Parameters<typeof saveEditor>[1]) {
     const saved = await saveEditor(value, input);
-    if (value.kind === "chore" && "data" in saved && saved.data.date) setDate(saved.data.date);
+    if (value.kind === "chore" && "data" in saved && saved.data.date && !input.title?.includes("🔄")) setDate(saved.data.date);
     return saved;
   }
 
@@ -297,12 +312,11 @@ export default function Planner() {
     {quickAdd && <AddAnythingDialog onClose={() => setQuickAdd(false)} onChoose={create}/>}
 
     {/* 🚀 THE ARCHITECTURAL PLUG: CORRECTLY ROUTING CHORES INTO THE TASK EDITOR ENGINE */}
-    {editor && (editor.kind === "chore"
+    {editor && ((editor.kind === "chore" && !editor.item?.title?.includes("🔄"))
       ? <TaskEditor
           key={editor.item?.id || "new-task"}
           editor={editor}
           workspace={workspace}
-          date={date}
           language={language}
           onClose={() => setEditor(null)}
           onSave={handleEditorSave}
