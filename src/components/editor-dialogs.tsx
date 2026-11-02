@@ -34,16 +34,22 @@ interface EditorProps {
   onDelete: (editor: EditorState) => void;
 }
 
-function nextOccurrenceISO(weekday: number | number[], hhmm: string): string {
+function nextOccurrenceISO(weekday: number | number[], hhmm: string, baseDateStr: string): string {
   const [h, m] = hhmm.split(":").map(Number);
-  const now = new Date();
-  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
-  const targetDay = Array.isArray(weekday) ? (weekday[0] ?? now.getDay()) : weekday;
-  let diff = (targetDay - now.getDay() + 7) % 7;
-  if (diff === 0 && d <= now) diff = 7;
+  const baseDate = baseDateStr ? new Date(baseDateStr.replace(/-/g, '/')) : new Date();
+  const d = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), h, m, 0, 0);
+  const targetDay = Array.isArray(weekday) ? (weekday[0] ?? baseDate.getDay()) : weekday;
+  let diff = targetDay - baseDate.getDay();
+
   d.setDate(d.getDate() + diff);
-  return d.toISOString().split('T')[0];
+
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+
+  return `${yyyy}-${mm}-${dd}`;
 }
+
 
 export function EditorDialog({ editor, workspace, date, language = "en", onClose, onSave, onDelete }: EditorProps) {
   const isArea = editor.kind === "area";
@@ -138,10 +144,13 @@ const formId = "editor-form-id";
                         if (editor.kind === "target") {
                           data.progress = progress;
                           data.completed = progress === 100;
-                          data.dueDate = repeat !== "none" ? dueDate || date : dueDate;
+                          data.dueDate = dueDate;
                           data.priority = priority;
-                          data.date = planDate || date; // 👈 Her koşulda gerçek bir tarih taşıyacak, ezilmeyecek
+                          if (!addToCalendar) {
+                            data.date = planDate || date;
+                          }
                         }
+
 
 
                                     if (addToCalendar) {
@@ -168,33 +177,56 @@ const formId = "editor-form-id";
         input = { title: title.trim(), areaId: savedAreas.some((area) => area.id === areaId) ? areaId : null, data };
       }
 
+      // 1. ADD AS TASK: İş mantığına göre tarih OLMADAN doğrudan görev listesine kaydeder
       if (editor.kind === "target" && addAsTask) {
-          const autoTaskInput = {
-              title: `🎯 Target Task: ${title.trim()}`,
-              areaId: savedAreas.some((area) => area.id === areaId) ? areaId : null,
-              data: { completed: false, date: data.date || planDate || date, time: time, description: description }
-                      };
-
-
-        await onSave({ kind: "chore", item: null } as any, autoTaskInput);
+        const autoTaskInput = {
+          title: `🎯 Target Task: ${title.trim()}`,
+          areaId: savedAreas.some((area) => area.id === areaId) ? areaId : null,
+          data: {
+            completed: false,
+            date: "", // 👈 Tarihsiz görev olarak kaydedilmesi sağlandı
+            time: time,
+            description: description
+          }
+        };
+        await onSave({ ...editor, kind: "chore", item: null }, autoTaskInput);
       }
 
-                                             if (editor.kind === "target" && addToCalendar && selectedDays.length > 0) {
-                                               for (const day of selectedDays) {
-                                                 const routineTaskInput = {
-title: `🔄 Routine: ${title.trim()}`,                                                   areaId: savedAreas.some((a) => a.id === areaId) ? areaId : null,
-                                                   data: {
-                                                     completed: false,
-                                                     description: description,
-                                                     time: time,
-date: day === (date ? new Date(date + "T00:00:00").getDay() : new Date().getDay()) ? date : nextOccurrenceISO(day, time),                                                     repeat: "weekly",
+            // 2. ADD TO CALENDAR: Gün seçimine göre doğrudan hedef haftanın günlerine kaydeder
+            if (editor.kind === "target" && addToCalendar && selectedDays.length > 0) {
+              // Gelen 'date' string'ini (YYYY-MM-DD) güvenli bir şekilde parçalıyoruz
+              const [year, month, dayStr] = date.split('-').map(Number);
 
-                                                     repeatCount: 52
-                                                   }
-                                                 };
-                           await onSave({ kind: "chore", item: null } as any, routineTaskInput);
-                         }
-                     }
+              for (const day of selectedDays) {
+                // Seçili haftanın referans tarihini oluşturuyoruz
+                const targetDate = new Date(year, month - 1, dayStr);
+
+                // Seçilen gün ile bu tarihin haftalık gün farkını bulup ekliyoruz
+                const diff = day - targetDate.getDay();
+                targetDate.setDate(targetDate.getDate() + diff);
+
+                // Yerel saat dilimi kayması yaşanmayan YYYY-MM-DD formatı
+                const yyyy = targetDate.getFullYear();
+                const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+                const dd = String(targetDate.getDate()).padStart(2, '0');
+                const calculatedDate = `${yyyy}-${mm}-${dd}`;
+
+                const routineTaskInput = {
+                  title: `🔄 Routine: ${title.trim()}`,
+                  areaId: savedAreas.some((a) => a.id === areaId) ? areaId : null,
+                  data: {
+                    completed: false,
+                    description: description,
+                    time: time,
+                    date: calculatedDate
+                  }
+                };
+                await onSave({ ...editor, kind: "chore", item: null }, routineTaskInput);
+              }
+            }
+
+
+
 
       await onSave(editor, input);
       onClose();
@@ -385,9 +417,7 @@ return (
                   </div>
                 )}
 
-             {supportsRepeat(editor.kind) && !addToCalendar && (
-                          <RepeatControls frequency={repeat} count={repeatCount} onFrequencyChange={setRepeat} onCountChange={setRepeatCount} language={language}/>
-                                    )}
+
                     {error && <p className="error-message" style={{ color: '#ef4444', fontSize: '13px', marginTop: '8px', fontWeight: '500' }}>{error}</p>}
 
                     <div className="modal-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', borderTop: '1px solid rgba(22, 19, 44, 0.1)', paddingTop: '16px' }}>
@@ -396,20 +426,20 @@ return (
                           <Trash2 size={16}/> Remove
                         </button>
                       ) : <div />}
-
                       <div style={{ display: 'flex', gap: '10px' }}>
                         <button type="button" className="secondary-button" onClick={onClose} disabled={busy}>Cancel</button>
                         <button type="submit" className="primary-button" disabled={busy || reading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           {busy ? <Spinner size={16}/> : <Check size={16}/>} Save {label}
                         </button>
                       </div>
-                              </div>
-                            </div>
-                          )}
+                     </div>
+                    </div>
+                  )}
                          </fieldset>
                     </form>
                   </div>
                 </Modal>
             );
           }
+
 
