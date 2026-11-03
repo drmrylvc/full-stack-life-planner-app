@@ -34,53 +34,28 @@ interface EditorProps {
   onDelete: (editor: EditorState) => void;
 }
 
-function nextOccurrenceISO(weekday: number | number[], hhmm: string, baseDateStr: string): string {
-  const [h, m] = hhmm.split(":").map(Number);
-  const baseDate = baseDateStr ? new Date(baseDateStr.replace(/-/g, '/')) : new Date();
-  const d = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), h, m, 0, 0);
-  const targetDay = Array.isArray(weekday) ? (weekday[0] ?? baseDate.getDay()) : weekday;
-  let diff = targetDay - baseDate.getDay();
-
-  d.setDate(d.getDate() + diff);
-
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-
 export function EditorDialog({ editor, workspace, date, language = "en", onClose, onSave, onDelete }: EditorProps) {
   const isArea = editor.kind === "area";
   const editing = !!(editor.item || editor.area);
   const initialData = editor.item?.data || {};
   const savedAreas = workspace.areas.filter((area) => !area.id.startsWith("temp-"));
-  const savedGoals = (workspace as any).goals?.filter((goal: any) => !goal.id.startsWith("temp-")) || [];
   const tr = (key: string) => translate(language, key as any) || key;
 
   const initialAreaId = editor.item ? editor.item.areaId : editor.areaId;
-  const initialGoalId = editor.item ? (editor.item as any).goalId : "";
 
   const [title, setTitle] = useState(editor.area?.name || editor.item?.title || "");
   const [description, setDescription] = useState(editor.area?.description || initialData.description || "");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      if (event.target.files && event.target.files[0]) {
-        setSelectedFile(event.target.files[0]);
-      }
-    };
-
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setSelectedFile(event.target.files[0]);
+    }
+  };
 
   const [areaId, setAreaId] = useState(savedAreas.some((area) => area.id === initialAreaId) ? initialAreaId! : "");
-  const [goalId, setGoalId] = useState(savedGoals.some((goal: any) => goal.id === initialGoalId) ? initialGoalId! : "");
-
-  const [addAsTask, setAddAsTask] = useState(false);
   const [addToCalendar, setAddToCalendar] = useState(false);
-  const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [time, setTime] = useState(initialData.time || "09:00");
-  const [sendNotification, setSendNotification] = useState(true);
 
   const [progress, setProgress] = useState(initialData.progress || 0);
   const [dueDate, setDueDate] = useState(initialData.dueDate ?? (editing ? "" : addDays(date, 14)));
@@ -102,11 +77,9 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
   const busyRef = useRef(false);
   const [error, setError] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
-  const errorRef = useRef<HTMLParagraphElement>(null);
-const formId = "editor-form-id";
+  const formId = "editor-form-id";
   const label = RESOURCE_LABELS[editor.kind];
   const Icon = editor.kind === "target" ? Target : editor.kind === "plan" ? CalendarDays : editor.kind === "chore" ? ListChecks : editor.kind === "file" ? FolderOpen : editor.kind === "note" ? StickyNote : editor.kind === "habit" ? Zap : Sprout;
-
   function readFile(file?: File) {
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { setError("Choose a file up to 2 MB."); return; }
@@ -139,31 +112,20 @@ const formId = "editor-form-id";
       let input: AreaInput | ItemInput;
       if (isArea) {
         input = { name: title.trim(), description, emoji: emoji || "🌱", color };
-            } else {
+      } else {
         const data: ItemData = { ...clearSeries(initialData), description };
-                        if (editor.kind === "target") {
-                          data.progress = progress;
-                          data.completed = progress === 100;
-                          data.dueDate = dueDate;
-                          data.priority = priority;
-                          if (!addToCalendar) {
-                            data.date = planDate || date;
-                          }
-                        }
 
+        if (editor.kind === "target") {
+          data.progress = progress;
+          data.completed = progress === 100;
+          data.dueDate = dueDate;
+          data.priority = priority;
+        }
 
-
-                                    if (addToCalendar) {
-                                      data.time = time;
-                                      data.date = selectedDays.length > 0 ? nextOccurrenceISO(selectedDays, time) : (planDate || date);
-                                      data.repeat = "weekly";
-                                      // Arka yüzün (Zod) tanımadığı ve hata fırlattığı "days" ve "repeatDays" satırları tamamen kaldırıldı.
-                                    } else {
-                                      data.date = planDate || date;
-                                    }
-
-
-
+        data.date = planDate || date;
+        if (addToCalendar) {
+          data.time = time;
+        }
 
         if (editor.kind === "plan") { data.date = planDate; data.time = time; data.duration = duration; data.completed = initialData.completed || false; }
         if (editor.kind === "chore") { data.date = planDate; data.completed = initialData.completed || false; }
@@ -177,76 +139,43 @@ const formId = "editor-form-id";
         input = { title: title.trim(), areaId: savedAreas.some((area) => area.id === areaId) ? areaId : null, data };
       }
 
-      // 1. ADD AS TASK: İş mantığına göre tarih OLMADAN doğrudan görev listesine kaydeder
-      if (editor.kind === "target" && addAsTask) {
-        const autoTaskInput = {
-          title: `🎯 Target Task: ${title.trim()}`,
-          areaId: savedAreas.some((area) => area.id === areaId) ? areaId : null,
+      if (editor.kind === "target" && addToCalendar && planDate) {
+        const calendarPlanInput = {
+          title: `🎯 Target: ${title.trim()}`,
+          areaId: savedAreas.some((a) => a.id === areaId) ? areaId : null,
           data: {
             completed: false,
-            date: "", // 👈 Tarihsiz görev olarak kaydedilmesi sağlandı
+            description: description,
             time: time,
-            description: description
+            date: planDate,
+            duration: 30
           }
         };
-        await onSave({ ...editor, kind: "chore", item: null }, autoTaskInput);
+
+        await onSave(
+          {
+            ...editor,
+            kind: "plan",
+            item: { id: `temp-target-plan-${planDate}`, areaId, data: { date: planDate, time: time } } as any
+          },
+          calendarPlanInput
+        );
       }
-
-            // 2. ADD TO CALENDAR: Gün seçimine göre doğrudan hedef haftanın günlerine kaydeder
-            if (editor.kind === "target" && addToCalendar && selectedDays.length > 0) {
-              // Gelen 'date' string'ini (YYYY-MM-DD) güvenli bir şekilde parçalıyoruz
-              const [year, month, dayStr] = date.split('-').map(Number);
-
-              for (const day of selectedDays) {
-                // Seçili haftanın referans tarihini oluşturuyoruz
-                const targetDate = new Date(year, month - 1, dayStr);
-
-                // Seçilen gün ile bu tarihin haftalık gün farkını bulup ekliyoruz
-                const diff = day - targetDate.getDay();
-                targetDate.setDate(targetDate.getDate() + diff);
-
-                // Yerel saat dilimi kayması yaşanmayan YYYY-MM-DD formatı
-                const yyyy = targetDate.getFullYear();
-                const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
-                const dd = String(targetDate.getDate()).padStart(2, '0');
-                const calculatedDate = `${yyyy}-${mm}-${dd}`;
-
-                const routineTaskInput = {
-                  title: `🔄 Routine: ${title.trim()}`,
-                  areaId: savedAreas.some((a) => a.id === areaId) ? areaId : null,
-                  data: {
-                    completed: false,
-                    description: description,
-                    time: time,
-                    date: calculatedDate
-                  }
-                };
-                await onSave({ ...editor, kind: "chore", item: null }, routineTaskInput);
-              }
-            }
-
-
-
 
       await onSave(editor, input);
       onClose();
-          } catch (e) {
+    } catch (e) {
       console.error(e);
       setError(language === "tr" ? "Kaydedilirken bir hata oluştu." : "An error occurred while saving.");
     } finally {
       busyRef.current = false;
       setBusy(false);
     }
-}
+  }
 
-
-  // Bileşen (Component) seviyesindeki sabitler fonksiyon dışına, return öncesine alınmalı:
-  const emojis = ["🧠", "❤️", "💪", "👨‍👩‍👧", "💰", "🏍️", "🌱", "✨", "🎨", "💼", "✈️", "☀️"];
   const previewTheme = areaTheme({ color });
 
-
-  
-return (
+  return (
     <Modal
       title={`${editing ? "Edit" : "Add"} ${label === "life area" ? "a life area" : `${editing ? "your" : "a"} ${label}`}`}
       eyebrow={`ezlife26 · ${editing ? "A LITTLE REFRESH" : "MAKE ROOM FOR WHAT MATTERS"}`}
@@ -255,14 +184,24 @@ return (
       className={`editor-modal kind-${editor.kind} ${editor.kind === "note" ? "note-editor-modal" : ""}`}
       wide={editor.kind === "note"}
     >
-      {/* 🔓 DİKEY KAYDIRMA KİLİDİNİ AÇAN ESNEK SARMALAYICI KATMAN */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '70vh', overflowY: 'auto', paddingRight: '6px' }}>
-
+      <div style={{
+        display: 'flex',
+        direction: 'ltr',
+        flexDirection: 'column',
+        gap: '16px',
+        maxHeight: '75vh',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        paddingRight: '8px',
+        WebkitOverflowScrolling: 'touch',
+        position: 'relative',
+        height: '100%'
+      }}>
         <div className="editor-context">
           <span><Icon size={20}/></span>
           <div>
             <strong>{editing ? "Make it work for your life" : `Make room for a ${label}`}</strong>
-            <small>{isArea ? "Your own corner of a balanced life." : supportsRepeat(editor.kind) ? "One intention — once, or on a rhythm that fits." : "Your details stay together in your planner."}</small>
+            <small>{isArea ? "Your own corner of a balanced life." : "Your details stay together in your planner."}</small>
           </div>
           {!isArea && <AreaTag area={savedAreas.find((area) => area.id === areaId)} small/>}
         </div>
@@ -276,9 +215,7 @@ return (
             </div>
           </div>
         )}
-
-        {/* 🔒 FORM ETİKETİ TÜM SEÇİCİLERİ VE BUTONLARI İÇİNE ALACAK ŞEKİLDE GENİŞLETİLDİ */}
-        <form id={formId} onSubmit={submit} className="editor-form" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form id={formId} onSubmit={submit} className="editor-form" style={{ display: 'flex', flexDirection: 'column', gap: '16px', flexGrow: 1 }}>
           <fieldset disabled={busy} style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
             <label className="form-field">
@@ -288,53 +225,40 @@ return (
 
             {editor.kind === "file" && (
               <>
-                               <input type="file" className="visually-hidden" ref={fileInput} onChange={(event) => readFile(event.target.files?.[0])}/>
-<div className={`file-dropzone ${dragging ? "dragging" : ""} ${fileData.content || fileData.url ? "has-file" : ""}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); readFile(event.dataTransfer.files?.[0]); }}>
-
+                <input type="file" className="visually-hidden" ref={fileInput} onChange={(event) => readFile(event.target.files?.[0])}/>
+                <div className={`file-dropzone ${dragging ? "dragging" : ""} ${fileData.content || fileData.url ? "has-file" : ""}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); readFile(event.dataTransfer.files?.[0]); }}>
                   {fileData.content || fileData.url ? <><span className="uploaded-file-icon">{fileData.mimeType?.startsWith("image/") ? <ImagePlus size={26}/> : <FileText size={26}/>}</span><span><strong>{fileName}</strong><small>{humanSize(fileData.fileSize)} · Ready to keep</small></span><button type="button" className="text-button" onClick={() => fileInput.current?.click()}>Replace</button></> : <button type="button" onClick={() => fileInput.current?.click()}>{reading ? <Spinner size={28}/> : <UploadCloud size={30}/>}<strong>{reading ? "Getting your file ready…" : "Drop a little something here"}</strong><span>or <u>browse files</u> · Up to 2 MB</span></button>}
                 </div>
               </>
             )}
 
-            <div className="form-row">
+            <label className="form-field">
+              <span>A gentle deadline</span>
+              <input type="date" aria-label="A gentle deadline" value={dueDate} onChange={(event) => setDueDate(event.target.value)}/>
+              <small>Optional. A target can be saved without a deadline.</small>
+            </label>
+
+            {!isArea && (
               <label className="form-field">
-                <span>A gentle deadline</span>
-                <input type="date" aria-label="A gentle deadline" value={dueDate} onChange={(event) => setDueDate(event.target.value)}/>
-                <small>{repeat === "none" ? "Optional. A target can be saved without a deadline." : "The first occurrence starts on this date."}</small>
+                <span>{tr("addFile")} <small>Optional</small></span>
+                <input type="file" onChange={handleFileChange} style={{ width: "100%", padding: "10px", border: "1px dashed rgba(22, 19, 44, 0.2)", borderRadius: "12px", backgroundColor: "rgba(22, 19, 44, 0.02)", cursor: "pointer", color: "#16132c" }}/>
+                {selectedFile && <small style={{ color: "#10b981", display: "block", marginTop: "6px", fontWeight: "600" }}>📎 Selected File: {selectedFile.name}</small>}
               </label>
+            )}
 
-                            {!isArea && (
-                              <label className="form-field">
-                                <span>{tr("addFile")} <small>Optional</small></span>
-                                <input type="file" onChange={handleFileChange} style={{ width: "100%", padding: "10px", border: "1px dashed rgba(22, 19, 44, 0.2)", borderRadius: "12px", backgroundColor: "rgba(22, 19, 44, 0.02)", cursor: "pointer", color: "#16132c" }}/>
-                                {selectedFile && <small style={{ color: "#10b981", display: "block", marginTop: "6px", fontWeight: "600" }}>📎 Selected File: {selectedFile.name}</small>}
-                              </label>
-                            )}
-
-
-              <label className="form-field">
-                <span>Priority</span>
-                <select value={priority} onChange={(event) => setPriority(event.target.value as ItemData["priority"])}>
-                  <option value="low">Low · When there's room</option>
-                  <option value="medium">Medium · Worth making time</option>
-                  <option value="high">High · A little more focus</option>
-                </select>
-              </label>
-            </div>
+            <label className="form-field">
+              <span>Priority</span>
+              <select value={priority} onChange={(event) => setPriority(event.target.value as ItemData["priority"])}>
+                <option value="low">Low · When there's room</option>
+                <option value="medium">Medium · Worth making time</option>
+                <option value="high">High · A little more focus</option>
+              </select>
+            </label>
 
             <div className="form-field progress-form-field">
               <span>How far have you come?<strong>{progress}%</strong></span>
               <input type="range" min="0" max="100" step="5" value={progress} onChange={(event) => setProgress(Number(event.target.value))}/>
               <div className="range-labels"><span>Just getting started</span><span>You did it!</span></div>
-            </div>
-
-            <div style={{ marginTop: '10px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(22, 19, 44, 0.1)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-<strong style={{ display: 'block', fontSize: '14px', color: '#16132c' }}>{tr("addAsTask")}</strong>
-<small style={{ color: '#888', display: 'block', marginTop: '2px', fontSize: '12px' }}>Link a recurring action plan to reach this target.</small>                </div>
-                <input type="checkbox" checked={addAsTask} onChange={(e) => setAddAsTask(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#16132c' }}/>
-              </div>
             </div>
 
             {editor.kind === "plan" && (
@@ -350,96 +274,48 @@ return (
               <div style={{ marginTop: '16px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '16px', border: '1px solid rgba(22, 19, 44, 0.1)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                                        <strong style={{ display: 'block', fontSize: '14px', color: '#16132c' }}>Add to Calendar</strong>
-                                        <small style={{ color: '#888', display: 'block', marginTop: '2px', fontSize: '12px' }}>Display this item directly on your calendar view.</small>
-
+                    <strong style={{ display: 'block', fontSize: '14px', color: '#16132c' }}>Add to Calendar</strong>
+                    <small style={{ color: '#888', display: 'block', marginTop: '2px', fontSize: '12px' }}>Display this item directly on your calendar view.</small>
                   </div>
                   <input type="checkbox" checked={addToCalendar} onChange={(e) => setAddToCalendar(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#16132c' }}/>
                 </div>
 
-                                  {addToCalendar && (
+                {addToCalendar && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '14px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '10px', backgroundColor: 'rgba(22, 19, 44, 0.02)', borderRadius: '12px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#888', letterSpacing: '1px' }}>{language === "tr" ? "PLAN SAATİ" : "PLAN TIME"}</span>
-                      <input type="time" required value={time} onChange={(event) => setTime(event.target.value)} style={{ fontSize: '32px', fontWeight: '700', color: '#16132c', background: 'transparent', border: 'none', textAlign: 'center', outline: 'none', cursor: 'pointer' }}/>
-                    </div>
-
-                    {/* 🗓️ HAFTALIK GÜN SEÇİCİ BUTON GRUBU */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#888', letterSpacing: '1px', textAlign: 'center' }}>
-                        {language === "tr" ? "TEKRARLANACAK GÜNLER" : "REPEAT DAYS"}
-                      </span>
-                      <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginTop: '4px' }}>
-                                                {[
-                                                  { label: language === "tr" ? "Pz" : "S", value: 0 }, // Pazar ilk sıraya alındı
-                                                  { label: language === "tr" ? "Pt" : "M", value: 1 },
-                                                  { label: language === "tr" ? "Sa" : "T", value: 2 },
-                                                  { label: language === "tr" ? "Ça" : "W", value: 3 },
-                                                  { label: language === "tr" ? "Pe" : "T", value: 4 },
-                                                  { label: language === "tr" ? "Cu" : "F", value: 5 },
-                                                  { label: language === "tr" ? "Ct" : "S", value: 6 },
-                                                ].map((day) => {
-
-                          const isSelected = selectedDays.includes(day.value);
-                          return (
-                            <button
-                              key={day.value}
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault(); // 👈 Üst katmanlara submit gitmesini engeller
-                                e.stopPropagation(); // 👈 Event köpürmesini durdurur
-                                if (isSelected) {
-                                  setSelectedDays(selectedDays.filter((d) => d !== day.value));
-                                } else {
-                                  setSelectedDays([...selectedDays, day.value]);
-                                }
-                              }}
-                              style={{
-                                width: '36px',
-                                height: '36px',
-                                borderRadius: '50%',
-                                border: 'none',
-                                fontSize: '12px',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease',
-                                backgroundColor: isSelected ? '#16132c' : 'rgba(22, 19, 44, 0.05)',
-                                color: isSelected ? '#ffffff' : '#16132c',
-                                boxShadow: isSelected ? '0 4px 10px rgba(22,19,44,0.2)' : 'none'
-                              }}
-                            >
-                              {day.label}
-                            </button>
-                          );
-                        })}
-                      </div>
+                    <div className="form-row">
+                      <label className="form-field">
+                        <span>Plan Date</span>
+                        <input type="date" required value={planDate} onChange={(event) => setPlanDate(event.target.value)}/>
+                      </label>
+                      <label className="form-field">
+                        <span>Plan Time</span>
+                        <input type="time" required value={time} onChange={(event) => setTime(event.target.value)}/>
+                      </label>
                     </div>
                   </div>
                 )}
+              </div>
+            )}
 
+            {error && <p className="error-message" style={{ color: '#ef4444', fontSize: '13px', marginTop: '8px', fontWeight: '500' }}>{error}</p>}
 
-                    {error && <p className="error-message" style={{ color: '#ef4444', fontSize: '13px', marginTop: '8px', fontWeight: '500' }}>{error}</p>}
+            <div className="modal-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', borderTop: '1px solid rgba(22, 19, 44, 0.1)', paddingTop: '16px' }}>
+              {editing ? (
+                <button type="button" className="delete-button" onClick={() => { if(confirm("Are you sure?")) onDelete(editor); }} disabled={busy} style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                  <Trash2 size={16}/> Remove
+                </button>
+              ) : <div />}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="button" className="secondary-button" onClick={onClose} disabled={busy}>Cancel</button>
+                <button type="submit" className="primary-button" disabled={busy || reading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {busy ? <Spinner size={16}/> : <Check size={16}/>} Save {label}
+                </button>
+              </div>
+            </div>
 
-                    <div className="modal-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', borderTop: '1px solid rgba(22, 19, 44, 0.1)', paddingTop: '16px' }}>
-                      {editing ? (
-                        <button type="button" className="delete-button" onClick={() => { if(confirm("Are you sure?")) onDelete(editor); }} disabled={busy} style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer' }}>
-                          <Trash2 size={16}/> Remove
-                        </button>
-                      ) : <div />}
-                      <div style={{ display: 'flex', gap: '10px' }}>
-                        <button type="button" className="secondary-button" onClick={onClose} disabled={busy}>Cancel</button>
-                        <button type="submit" className="primary-button" disabled={busy || reading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          {busy ? <Spinner size={16}/> : <Check size={16}/>} Save {label}
-                        </button>
-                      </div>
-                     </div>
-                    </div>
-                  )}
-                         </fieldset>
-                    </form>
-                  </div>
-                </Modal>
-            );
-          }
-
-
+          </fieldset>
+        </form>
+      </div>
+    </Modal>
+  );
+}
