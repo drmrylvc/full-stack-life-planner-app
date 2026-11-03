@@ -11,6 +11,24 @@ import { addDays, humanSize, parseDate, dateISO } from "@/lib/utils";
 import { RepeatControls } from "./repeat-controls";
 import { AreaTag, FileGlyph, Modal, Spinner } from "./ui";
 
+const EMOJIS = ["🌱", "❤️", "🧠", "👨‍👩‍👧‍👦", "💼", "🏋️", "🎨", "✨", "🧘", "📚", "✈️", "☀️"];
+
+function calculateSelectedDates(baseDateStr: string, days: number[]): string[] {
+  if (!days || days.length === 0) return [baseDateStr || dateISO()];
+  const [year, month, dayStr] = (baseDateStr || dateISO()).split("-").map(Number);
+  const baseDate = new Date(year, month - 1, dayStr);
+  const currentDayIndex = baseDate.getDay(); // 0 (Sun) - 6 (Sat)
+
+  return days.map((targetDay) => {
+    const diff = targetDay - currentDayIndex;
+    const targetDate = new Date(year, month - 1, dayStr + diff);
+    const yyyy = targetDate.getFullYear();
+    const mm = String(targetDate.getMonth() + 1).padStart(2, "0");
+    const dd = String(targetDate.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  });
+}
+
 export function AddAnythingDialog({ onClose, onChoose }: { onClose: () => void; onChoose: (kind: ItemKind | "area") => void }) {
   const choices = [
     { kind: "target" as const, icon: Target, title: "A meaningful target", text: "Something to work towards", color: "lavender" },
@@ -56,6 +74,7 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
   const [areaId, setAreaId] = useState(savedAreas.some((area) => area.id === initialAreaId) ? initialAreaId! : "");
   const [addToCalendar, setAddToCalendar] = useState(false);
   const [time, setTime] = useState(initialData.time || "09:00");
+  const [selectedDays, setSelectedDays] = useState<number[]>([parseDate(date || dateISO()).getDay()]);
 
   const [progress, setProgress] = useState(initialData.progress || 0);
   const [dueDate, setDueDate] = useState(initialData.dueDate ?? (editing ? "" : addDays(date, 14)));
@@ -80,6 +99,7 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
   const formId = "editor-form-id";
   const label = RESOURCE_LABELS[editor.kind];
   const Icon = editor.kind === "target" ? Target : editor.kind === "plan" ? CalendarDays : editor.kind === "chore" ? ListChecks : editor.kind === "file" ? FolderOpen : editor.kind === "note" ? StickyNote : editor.kind === "habit" ? Zap : Sprout;
+
   function readFile(file?: File) {
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { setError("Choose a file up to 2 MB."); return; }
@@ -118,13 +138,9 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
         if (editor.kind === "target") {
           data.progress = progress;
           data.completed = progress === 100;
-          data.dueDate = dueDate;
+          data.dueDate = dueDate || undefined;
           data.priority = priority;
-        }
-
-        data.date = planDate || date;
-        if (addToCalendar) {
-          data.time = time;
+          data.date = planDate || date;
         }
 
         if (editor.kind === "plan") { data.date = planDate; data.time = time; data.duration = duration; data.completed = initialData.completed || false; }
@@ -139,27 +155,34 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
         input = { title: title.trim(), areaId: savedAreas.some((area) => area.id === areaId) ? areaId : null, data };
       }
 
-      if (editor.kind === "target" && addToCalendar && planDate) {
-        const calendarPlanInput = {
-          title: `🎯 Target: ${title.trim()}`,
-          areaId: savedAreas.some((a) => a.id === areaId) ? areaId : null,
-          data: {
-            completed: false,
-            description: description,
-            time: time,
-            date: planDate,
-            duration: 30
-          }
-        };
+      if (editor.kind === "target" && addToCalendar) {
+        const targetDates = calculateSelectedDates(planDate || date, selectedDays);
 
-        await onSave(
-          {
-            ...editor,
-            kind: "plan",
-            item: { id: `temp-target-plan-${planDate}`, areaId, data: { date: planDate, time: time } } as any
-          },
-          calendarPlanInput
-        );
+        for (const cDate of targetDates) {
+          const calendarPlanInput: ItemInput = {
+            title: `🎯 Target: ${title.trim()}`,
+            areaId: savedAreas.some((a) => a.id === areaId) ? areaId : null,
+            data: {
+              completed: false,
+              description: description || `Target plan for ${title.trim()}`,
+              time: time || "09:00",
+              date: cDate,
+              duration: 30,
+              repeat: "weekly",
+              repeatCount: 12
+            }
+          };
+
+          await onSave(
+            {
+              ...editor,
+              kind: "plan",
+              item: null,
+              areaId: savedAreas.some((a) => a.id === areaId) ? areaId : null
+            },
+            calendarPlanInput
+          );
+        }
       }
 
       await onSave(editor, input);
@@ -184,44 +207,84 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
       className={`editor-modal kind-${editor.kind} ${editor.kind === "note" ? "note-editor-modal" : ""}`}
       wide={editor.kind === "note"}
     >
-      <div style={{
-        display: 'flex',
-        direction: 'ltr',
-        flexDirection: 'column',
-        gap: '16px',
-        maxHeight: '75vh',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        paddingRight: '8px',
-        WebkitOverflowScrolling: 'touch',
-        position: 'relative',
-        height: '100%'
-      }}>
-        <div className="editor-context">
-          <span><Icon size={20}/></span>
-          <div>
-            <strong>{editing ? "Make it work for your life" : `Make room for a ${label}`}</strong>
-            <small>{isArea ? "Your own corner of a balanced life." : "Your details stay together in your planner."}</small>
-          </div>
-          {!isArea && <AreaTag area={savedAreas.find((area) => area.id === areaId)} small/>}
-        </div>
-
-        {isArea && (
-          <div className="editor-area-preview" style={{ background: previewTheme.gradient, color: previewTheme.ink }}>
-            <span>{emoji}</span>
+      <form id={formId} onSubmit={submit} className="editor-form">
+        <div className="editor-fields">
+          <div className="editor-context">
+            <span><Icon size={20}/></span>
             <div>
-              <strong>{title || "Your life area"}</strong>
-              <small>{description || "Give this part of life a little intention."}</small>
+              <strong>{editing ? "Make it work for your life" : `Make room for a ${label}`}</strong>
+              <small>{isArea ? "Your own corner of a balanced life." : "Your details stay together in your planner."}</small>
             </div>
+            {!isArea && <AreaTag area={savedAreas.find((area) => area.id === areaId)} small/>}
           </div>
-        )}
-        <form id={formId} onSubmit={submit} className="editor-form" style={{ display: 'flex', flexDirection: 'column', gap: '16px', flexGrow: 1 }}>
-          <fieldset disabled={busy} style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
+          {isArea && (
+            <div className="editor-area-preview" style={{ background: previewTheme.gradient, color: previewTheme.ink }}>
+              <span>{emoji}</span>
+              <div>
+                <strong>{title || "Your life area"}</strong>
+                <small>{description || "Give this part of life a little intention."}</small>
+              </div>
+            </div>
+          )}
+
+          <fieldset disabled={busy} style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+            {/* Title / Name */}
             <label className="form-field">
               <span>{isArea ? "Life area name" : editor.kind === "note" ? "Give your thought a title" : editor.kind === "file" ? "File name" : editor.kind === "habit" ? "Your daily habit" : editor.kind === "chore" ? "Task" : editor.kind === "plan" ? "What are you making time for?" : "Your meaningful target"}</span>
               <input required maxLength={isArea ? 80 : 200} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={isArea ? "e.g. Creativity, Career, Adventure" : editor.kind === "habit" ? "e.g. Read a few pages" : editor.kind === "note" ? "A thought worth keeping…" : editor.kind === "file" ? "A name to find it by" : editor.kind === "chore" ? "e.g. Pick up groceries" : editor.kind === "plan" ? "A moment that matters…" : "Something worth working towards…"}/>
             </label>
+
+            {/* Life Area customization */}
+            {isArea && (
+              <>
+                <div className="form-field">
+                  <span>Choose an emoji</span>
+                  <div className="emoji-picker" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {EMOJIS.map((e) => (
+                      <button key={e} type="button" className={emoji === e ? "selected" : ""} onClick={() => setEmoji(e)} style={{ fontSize: '20px', padding: '6px 10px', borderRadius: '8px', border: emoji === e ? '2px solid #8b5cf6' : '1px solid #e5dff0', background: emoji === e ? '#eee5ff' : '#f8f5fc', cursor: 'pointer' }}>
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <label className="form-field">
+                  <span>Description <small>Optional</small></span>
+                  <textarea rows={2} maxLength={500} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Give this part of life a little intention…"/>
+                </label>
+
+                <div className="form-field">
+                  <span>Theme color</span>
+                  <div className="color-picker" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px' }}>
+                    {(["lavender", "blue", "peach", "rose", "mint", "sand"] as AreaColor[]).map((c) => (
+                      <button key={c} type="button" className={color === c ? "selected" : ""} onClick={() => setColor(c)} style={{ background: AREA_COLORS[c].background, color: AREA_COLORS[c].text, border: color === c ? '2px solid #8b5cf6' : 'none', borderRadius: '10px', padding: '10px 4px', fontWeight: '600', cursor: 'pointer', textAlign: 'center', fontSize: '11px' }}>
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {!isArea && (
+              <label className="form-field">
+                <span>Life area <small>Optional</small></span>
+                <select value={areaId} onChange={(event) => setAreaId(event.target.value)}>
+                  <option value="">Personal · No life area</option>
+                  {savedAreas.map((area) => (
+                    <option key={area.id} value={area.id}>{area.emoji} {area.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {!isArea && (
+              <label className="form-field">
+                <span>{editor.kind === "note" ? "Your thought" : "Notes & details"} <small>Optional</small></span>
+                <textarea rows={3} maxLength={12000} value={description} onChange={(event) => setDescription(event.target.value)} placeholder={editor.kind === "note" ? "A thought worth keeping…" : "Any details you want to remember…"}/>
+              </label>
+            )}
 
             {editor.kind === "file" && (
               <>
@@ -229,93 +292,168 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
                 <div className={`file-dropzone ${dragging ? "dragging" : ""} ${fileData.content || fileData.url ? "has-file" : ""}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); readFile(event.dataTransfer.files?.[0]); }}>
                   {fileData.content || fileData.url ? <><span className="uploaded-file-icon">{fileData.mimeType?.startsWith("image/") ? <ImagePlus size={26}/> : <FileText size={26}/>}</span><span><strong>{fileName}</strong><small>{humanSize(fileData.fileSize)} · Ready to keep</small></span><button type="button" className="text-button" onClick={() => fileInput.current?.click()}>Replace</button></> : <button type="button" onClick={() => fileInput.current?.click()}>{reading ? <Spinner size={28}/> : <UploadCloud size={30}/>}<strong>{reading ? "Getting your file ready…" : "Drop a little something here"}</strong><span>or <u>browse files</u> · Up to 2 MB</span></button>}
                 </div>
+                <label className="form-field">
+                  <span>Amount / Cost <small>Optional</small></span>
+                  <input type="number" step="0.01" min="0" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00"/>
+                </label>
               </>
             )}
 
-            <label className="form-field">
-              <span>A gentle deadline</span>
-              <input type="date" aria-label="A gentle deadline" value={dueDate} onChange={(event) => setDueDate(event.target.value)}/>
-              <small>Optional. A target can be saved without a deadline.</small>
-            </label>
+            {editor.kind === "target" && (
+              <>
+                <label className="form-field">
+                  <span>A gentle deadline</span>
+                  <input type="date" aria-label="A gentle deadline" value={dueDate} onChange={(event) => setDueDate(event.target.value)}/>
+                  <small>Optional. A target can be saved without a deadline.</small>
+                </label>
 
-            {!isArea && (
-              <label className="form-field">
-                <span>{tr("addFile")} <small>Optional</small></span>
-                <input type="file" onChange={handleFileChange} style={{ width: "100%", padding: "10px", border: "1px dashed rgba(22, 19, 44, 0.2)", borderRadius: "12px", backgroundColor: "rgba(22, 19, 44, 0.02)", cursor: "pointer", color: "#16132c" }}/>
-                {selectedFile && <small style={{ color: "#10b981", display: "block", marginTop: "6px", fontWeight: "600" }}>📎 Selected File: {selectedFile.name}</small>}
+                {!isArea && (
+                  <label className="form-field">
+                    <span>{tr("addFile")} <small>Optional</small></span>
+                    <input type="file" onChange={handleFileChange} style={{ width: "100%", padding: "10px", border: "1px dashed rgba(22, 19, 44, 0.2)", borderRadius: "12px", backgroundColor: "rgba(22, 19, 44, 0.02)", cursor: "pointer", color: "#16132c" }}/>
+                    {selectedFile && <small style={{ color: "#10b981", display: "block", marginTop: "6px", fontWeight: "600" }}>📎 Selected File: {selectedFile.name}</small>}
+                  </label>
+                )}
+
+                <label className="form-field">
+                  <span>Priority</span>
+                  <select value={priority} onChange={(event) => setPriority(event.target.value as ItemData["priority"])}>
+                    <option value="low">Low · When there's room</option>
+                    <option value="medium">Medium · Worth making time</option>
+                    <option value="high">High · A little more focus</option>
+                  </select>
+                </label>
+
+                <div className="form-field progress-form-field">
+                  <span>How far have you come? <strong>{progress}%</strong></span>
+                  <input type="range" min="0" max="100" step="5" value={progress} onChange={(event) => setProgress(Number(event.target.value))}/>
+                  <div className="range-labels"><span>Just getting started</span><span>You did it!</span></div>
+                </div>
+
+                <div style={{ marginTop: '16px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '16px', border: '1px solid rgba(22, 19, 44, 0.1)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <strong style={{ display: 'block', fontSize: '14px', color: '#16132c' }}>Add to Calendar</strong>
+                      <small style={{ color: '#888', display: 'block', marginTop: '2px', fontSize: '12px' }}>Display this item directly on your calendar view.</small>
+                    </div>
+                    <input type="checkbox" checked={addToCalendar} onChange={(e) => setAddToCalendar(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#16132c' }}/>
+                  </div>
+
+                  {addToCalendar && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '14px' }}>
+                      <div className="form-row">
+                        <label className="form-field">
+                          <span>Plan Date</span>
+                          <input type="date" required value={planDate} onChange={(event) => setPlanDate(event.target.value)}/>
+                        </label>
+                        <label className="form-field">
+                          <span>Plan Time</span>
+                          <input type="time" required value={time} onChange={(event) => setTime(event.target.value)}/>
+                        </label>
+                      </div>
+
+                      {/* Multi-Day Selector (Pic 2 style) */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#888', letterSpacing: '1px' }}>
+                          {language === "tr" ? "TEKRARLANACAK GÜNLER" : "REPEAT DAYS OF THE WEEK"}
+                        </span>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginTop: '4px' }}>
+                          {[
+                            { label: language === "tr" ? "Pz" : "S", value: 0 },
+                            { label: language === "tr" ? "Pt" : "M", value: 1 },
+                            { label: language === "tr" ? "Sa" : "T", value: 2 },
+                            { label: language === "tr" ? "Ça" : "W", value: 3 },
+                            { label: language === "tr" ? "Pe" : "T", value: 4 },
+                            { label: language === "tr" ? "Cu" : "F", value: 5 },
+                            { label: language === "tr" ? "Ct" : "S", value: 6 },
+                          ].map((day) => {
+                            const isSelected = selectedDays.includes(day.value);
+                            return (
+                              <button
+                                key={day.value}
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (isSelected) {
+                                    if (selectedDays.length > 1) {
+                                      setSelectedDays(selectedDays.filter((d) => d !== day.value));
+                                    }
+                                  } else {
+                                    setSelectedDays([...selectedDays, day.value].sort());
+                                  }
+                                }}
+                                style={{
+                                  width: '38px',
+                                  height: '38px',
+                                  borderRadius: '50%',
+                                  border: 'none',
+                                  fontSize: '13px',
+                                  fontWeight: '700',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s ease',
+                                  backgroundColor: isSelected ? '#16132c' : 'rgba(22, 19, 44, 0.05)',
+                                  color: isSelected ? '#ffffff' : '#16132c',
+                                  boxShadow: isSelected ? '0 4px 10px rgba(22,19,44,0.25)' : 'none'
+                                }}
+                              >
+                                {day.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {editor.kind === "plan" && (
+              <>
+                <div className="form-row">
+                  <label className="form-field"><span>Day</span><input type="date" required value={planDate} onChange={(event) => setPlanDate(event.target.value)}/></label>
+                  <label className="form-field"><span>Time</span><input type="time" required value={time} onChange={(event) => setTime(event.target.value)}/></label>
+                </div>
+                <RepeatControls repeat={repeat} count={repeatCount} start={planDate || date} language={language} editingSeries={!!initialData.seriesId} onRepeat={setRepeat} onCount={setRepeatCount}/>
+              </>
+            )}
+
+            {editor.kind === "habit" && (
+              <>
+                <label className="form-field">
+                  <span>Unit / Target <small>Optional</small></span>
+                  <input value={unit} onChange={(event) => setUnit(event.target.value)} placeholder="e.g. 20 mins, 5 pages, 8 glasses"/>
+                </label>
+                <RepeatControls repeat={repeat} count={repeatCount} start={planDate || date} language={language} editingSeries={!!initialData.seriesId} onRepeat={setRepeat} onCount={setRepeatCount}/>
+              </>
+            )}
+
+            {editor.kind === "note" && (
+              <label className="checkbox-field" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                <input type="checkbox" checked={pinned} onChange={(event) => setPinned(event.target.checked)}/>
+                <span>Pin this thought to the top of your notes</span>
               </label>
             )}
 
-            <label className="form-field">
-              <span>Priority</span>
-              <select value={priority} onChange={(event) => setPriority(event.target.value as ItemData["priority"])}>
-                <option value="low">Low · When there's room</option>
-                <option value="medium">Medium · Worth making time</option>
-                <option value="high">High · A little more focus</option>
-              </select>
-            </label>
-
-            <div className="form-field progress-form-field">
-              <span>How far have you come?<strong>{progress}%</strong></span>
-              <input type="range" min="0" max="100" step="5" value={progress} onChange={(event) => setProgress(Number(event.target.value))}/>
-              <div className="range-labels"><span>Just getting started</span><span>You did it!</span></div>
-            </div>
-
-            {editor.kind === "plan" && (
-              <div className="form-row">
-                <label className="form-field"><span>Day</span><input type="date" required value={planDate} onChange={(event) => setPlanDate(event.target.value)}/></label>
-                <label className="form-field"><span>Time</span><input type="time" required value={time} onChange={(event) => setTime(event.target.value)}/></label>
-              </div>
-            )}
-
-            {editor.kind === "chore" && <label className="form-field"><span>Day on the calendar</span><input type="date" required value={planDate} onChange={(event) => setPlanDate(event.target.value)}/></label>}
-
-            {editor.kind === "target" && (
-              <div style={{ marginTop: '16px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '16px', border: '1px solid rgba(22, 19, 44, 0.1)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <strong style={{ display: 'block', fontSize: '14px', color: '#16132c' }}>Add to Calendar</strong>
-                    <small style={{ color: '#888', display: 'block', marginTop: '2px', fontSize: '12px' }}>Display this item directly on your calendar view.</small>
-                  </div>
-                  <input type="checkbox" checked={addToCalendar} onChange={(e) => setAddToCalendar(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#16132c' }}/>
-                </div>
-
-                {addToCalendar && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '14px' }}>
-                    <div className="form-row">
-                      <label className="form-field">
-                        <span>Plan Date</span>
-                        <input type="date" required value={planDate} onChange={(event) => setPlanDate(event.target.value)}/>
-                      </label>
-                      <label className="form-field">
-                        <span>Plan Time</span>
-                        <input type="time" required value={time} onChange={(event) => setTime(event.target.value)}/>
-                      </label>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
             {error && <p className="error-message" style={{ color: '#ef4444', fontSize: '13px', marginTop: '8px', fontWeight: '500' }}>{error}</p>}
-
-            <div className="modal-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', borderTop: '1px solid rgba(22, 19, 44, 0.1)', paddingTop: '16px' }}>
-              {editing ? (
-                <button type="button" className="delete-button" onClick={() => { if(confirm("Are you sure?")) onDelete(editor); }} disabled={busy} style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer' }}>
-                  <Trash2 size={16}/> Remove
-                </button>
-              ) : <div />}
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="button" className="secondary-button" onClick={onClose} disabled={busy}>Cancel</button>
-                <button type="submit" className="primary-button" disabled={busy || reading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {busy ? <Spinner size={16}/> : <Check size={16}/>} Save {label}
-                </button>
-              </div>
-            </div>
-
           </fieldset>
-        </form>
-      </div>
+        </div>
+
+        <div className="modal-actions">
+          {editing ? (
+            <button type="button" className="delete-button" onClick={() => { if (confirm("Are you sure?")) onDelete(editor); }} disabled={busy} style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+              <Trash2 size={16}/> Remove
+            </button>
+          ) : <div />}
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button type="button" className="secondary-button" onClick={onClose} disabled={busy}>Cancel</button>
+            <button type="submit" className="primary-button" disabled={busy || reading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {busy ? <Spinner size={16}/> : <Check size={16}/>} Save {label}
+            </button>
+          </div>
+        </div>
+      </form>
     </Modal>
   );
 }

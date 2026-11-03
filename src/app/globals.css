@@ -1464,29 +1464,34 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* Size dialogs to the visible screen, including the space above mobile keyboards. */
 .modal-overlay { top: var(--modal-viewport-top, 0px); bottom: auto; height: var(--modal-viewport-height, 100dvh); }
 .modal-overlay .modal { max-height: calc(var(--modal-viewport-height, 100dvh) - 48px); }
-.modal.task-editor-modal { display: flex; flex-direction: column; padding: 0; overflow: hidden; max-height: calc(var(--modal-viewport-height, 100dvh) - 48px); }
-.modal.task-editor-modal .modal-header { margin: 0; flex: 0 0 auto; padding: 21px 24px; }
-.task-editor-form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
-.task-editor-fields { flex: 1 1 auto; min-height: 0; padding: 20px 24px 16px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+
+.modal.editor-modal, .modal.task-editor-modal { display: flex; flex-direction: column; padding: 0; overflow: hidden; max-height: calc(var(--modal-viewport-height, 100dvh) - 48px); }
+.modal.editor-modal .modal-header, .modal.task-editor-modal .modal-header { margin: 0; flex: 0 0 auto; padding: 21px 24px; }
+
+.editor-form, .task-editor-form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.editor-fields, .task-editor-fields { flex: 1 1 auto; min-height: 0; padding: 20px 24px 16px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+
 .task-editor-intro { display: flex; align-items: center; gap: 10px; padding: 11px 13px; margin-bottom: 18px; border: 1px solid #ebe2f7; border-radius: 14px; background: #f6f2fc; }
 .task-editor-intro > span { display: inline-flex; color: #8b5cf6; }
 .task-editor-intro > p { color: #8f7fa4; font-size: 11px; line-height: 1.7; }
-.modal.task-editor-modal .form-field > span:first-child { font-size: 12px; }
+.modal.task-editor-modal .form-field > span:first-child, .modal.editor-modal .form-field > span:first-child { font-size: 12px; }
 .task-options-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; padding: 10px 12px; color: #8166a6; background: #f7f4fc; border-radius: 12px; font-size: 12px; font-weight: 600; }
 .task-options-toggle:hover { background: #eee7f9; }
 .task-options-toggle > svg { transition: transform .2s; }
 .task-options-toggle > svg.expanded { transform: rotate(180deg); }
 .task-options-body { padding-top: 17px; }
-.modal.task-editor-modal .modal-footer.task-editor-actions { display: flex; align-items: center; justify-content: flex-end; flex: 0 0 auto; margin: 0; padding: 14px 24px; border-top: 1px solid #e7dfef; background: #fff; box-shadow: 0 -5px 18px rgba(35,26,62,.04); }
-.modal.task-editor-modal .task-editor-actions > .button { min-height: 44px; }
+
+.modal.editor-modal .modal-actions, .modal.task-editor-modal .modal-footer.task-editor-actions { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; margin: 0; padding: 14px 24px; border-top: 1px solid #e7dfef; background: #fff; box-shadow: 0 -5px 18px rgba(35,26,62,.04); }
+.modal.task-editor-modal .task-editor-actions > .button, .modal.editor-modal .modal-actions button { min-height: 44px; }
 .modal.task-editor-modal .task-save-error { margin: 0 0 16px; }
 .task-save-error strong { display: block; font-weight: 600; }
 .task-save-error p { margin-top: 5px; font-size: 11px; line-height: 1.6; }
+
 @media (max-width: 620px) {
   .modal-overlay .modal { max-height: calc(var(--modal-viewport-height, 100dvh) - 24px); }
-  .modal.task-editor-modal { max-height: calc(var(--modal-viewport-height, 100dvh) - 24px); }
-  .modal.task-editor-modal .modal-header { padding: 18px 20px; }
-  .task-editor-fields { padding: 17px 20px; }
-  .modal.task-editor-modal .modal-footer.task-editor-actions { padding: 12px 20px; }
-  .modal.task-editor-modal .task-editor-actions > .button { min-height: 44px; }
+  .modal.editor-modal, .modal.task-editor-modal { max-height: calc(var(--modal-viewport-height, 100dvh) - 24px); }
+  .modal.editor-modal .modal-header, .modal.task-editor-modal .modal-header { padding: 18px 20px; }
+  .editor-fields, .task-editor-fields { padding: 17px 20px; }
+  .modal.editor-modal .modal-actions, .modal.task-editor-modal .modal-footer.task-editor-actions { padding: 12px 20px; }
+  .modal.task-editor-modal .task-editor-actions > .button, .modal.editor-modal .modal-actions button { min-height: 44px; }
 }
