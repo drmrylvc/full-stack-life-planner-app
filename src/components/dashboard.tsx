@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, BarChart3, CalendarDays, ChevronDown, FolderOpen, Image as ImageIcon, Plus, Zap } from "lucide-react";
+import { BarChart3, CalendarDays, ChevronDown, FolderOpen, Image as ImageIcon, Pencil, Plus, Trash2, Zap } from "lucide-react";
 import { localeFor, translate } from "@/lib/i18n";
-import { addDays, dateISO, formatDate, formatTime, humanSize, parseDate, progressForArea } from "@/lib/utils";
+import { addDays, dateISO, formatDate, humanSize, parseDate, progressForArea } from "@/lib/utils";
 import ItemMenu from "./item-menu";
 import { areaTheme } from "@/lib/theme";
-import { CheckButton, FileGlyph, ProgressRing } from "./ui";
+import { CheckButton, FileGlyph } from "./ui";
 
-export default function Dashboard({ workspace, pending, date, onView, onCreate, onEdit, onToggle, onArea, onFile, onDelete, onQuickAdd, language }: any) {
+export default function Dashboard({ workspace, pending, date, onView, onCreate, onEdit, onEditArea, onToggle, onArea, onFile, onDelete, onQuickAdd, language }: any) {
 
   if (!workspace) {
     return (
@@ -26,10 +26,9 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
   const habits = items.filter((item: any) => item.kind === "habit");
   const doneHabits = habits.filter((item: any) => item.kind === "habit" && item.data.history?.includes(dateISO())).length;
   const plans = items.filter((item: any) => item.kind === "plan" && item.data.date === date).sort((a: any, b: any) => (a.data.time || "23:59").localeCompare(b.data.time || "23:59"));
-  const chores = items.filter((item: any) => item.kind === "chore" && item.data.date === date);
+  const chores = items.filter((item: any) => item.kind === "chore");
   const doneChores = chores.filter((item: any) => item.data.completed).length;
   const files = items.filter((item: any) => item.kind === "file");
-  const invoices = files.reduce((sum: number, item: any) => sum + (item.data.amount || 0), 0);
   const areaProgress = areas.length ? Math.round(areas.reduce((sum: number, area: any) => sum + progressForArea(area, items), 0) / areas.length) : 0;
   const areaFor = (item: any) => areas.find((area: any) => area.id === item.areaId);
   const firstOpenPlan = plans.find((item: any) => !item.data.completed);
@@ -70,7 +69,57 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
               const filesInArea = items.filter((item: any) => item.kind === "file" && item.areaId === area.id).length;
               const value = progressForArea(area, items);
               return (
-                <button key={area.id} className={`snap-area ${theme.dark ? "dark-ink" : ""}`} style={{ background: theme.gradient, color: theme.ink }} onClick={() => onArea(area)}>
+                <button key={area.id} className={`snap-area ${theme.dark ? "dark-ink" : ""}`} style={{ background: theme.gradient, color: theme.ink, position: "relative" }} onClick={() => onArea(area)}>
+                  <div style={{ position: "absolute", top: "10px", right: "10px", display: "flex", gap: "4px", zIndex: 2 }}>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      title={language === "tr" ? "Alanı Düzenle" : "Edit Life Area"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onEditArea) onEditArea(area);
+                      }}
+                      style={{
+                        background: "rgba(0, 0, 0, 0.25)",
+                        borderRadius: "50%",
+                        width: "28px",
+                        height: "28px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        color: "#fff",
+                        backdropFilter: "blur(4px)"
+                      }}
+                    >
+                      <Pencil size={13} />
+                    </span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      title={language === "tr" ? "Alanı Sil" : "Delete Life Area"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(language === "tr" ? `"${area.name}" yaşam alanını silmek istediğinize emin misiniz?` : `Are you sure you want to delete "${area.name}"?`)) {
+                          onDelete({ kind: "area", area });
+                        }
+                      }}
+                      style={{
+                        background: "rgba(220, 38, 38, 0.6)",
+                        borderRadius: "50%",
+                        width: "28px",
+                        height: "28px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        color: "#fff",
+                        backdropFilter: "blur(4px)"
+                      }}
+                    >
+                      <Trash2 size={13} />
+                    </span>
+                  </div>
                   <span className="snap-watermark" aria-hidden="true">{area.emoji}</span>
                   <span className="snap-area-emoji">{area.emoji}</span>
                   <strong style={{ display: "block", fontSize: "16px", fontWeight: "700", color: "#fff", marginBottom: "4px" }}>
@@ -124,7 +173,7 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
       </section>
 
       <div className="snap-stack">
-        <Accordion icon={<CalendarDays size={18}/>} iconClass="calendar" title={t("dailyPlan")} subtitle={nextPlanSubtitle} open={open.plan} onToggle={() => toggle("plan")} onAdd={() => onCreate("plan")}>
+        <Accordion icon={<CalendarDays size={18}/>} iconClass="calendar" title={t("dailyPlan")} subtitle={nextPlanSubtitle} open={open.plan} onToggle={() => toggle("plan")} addLabel={language === "tr" ? "Plan Ekle" : "Add Plan"} onAdd={() => onCreate("plan")}>
           <div style={{ display: "flex", gap: "6px", marginBottom: "16px", borderBottom: "1px solid rgba(0,0,0,0.05)", paddingBottom: "10px" }}>
             {["daily", "weekly", "monthly"].map((mode) => (
               <button
@@ -134,13 +183,15 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
                   setPlanView(mode as any);
                 }}
                 style={{
-                  padding: "5px 14px",
+                  padding: "6px 16px",
                   borderRadius: "20px",
-                  fontSize: "12px",
+                  fontSize: "13px",
                   fontWeight: "600",
                   backgroundColor: planView === mode ? "#16132c" : "transparent",
                   color: planView === mode ? "#fff" : "#666",
-                  border: planView === mode ? "1px solid #16132c" : "1px solid #e2e8f0"
+                  border: planView === mode ? "1px solid #16132c" : "1px solid #e2e8f0",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease"
                 }}
               >
                 {mode === "daily" ? (language === "tr" ? "Günlük" : "Daily") : mode === "weekly" ? (language === "tr" ? "Haftalık" : "Weekly") : (language === "tr" ? "Aylık" : "Monthly")}
@@ -294,12 +345,12 @@ function Accordion({ icon, iconClass, title, subtitle, badge, open, onToggle, ad
 }
 
 function Row({ item, pending, meta, area, onEdit, onToggle, onDelete, language }: any) {
-  const done = item.data.completed;
+  const done = !!item.data.completed;
   return (
-    <div className={`snap-row ${done ? "is-done" : ""}`}>
+    <div className={`snap-row ${done ? "is-done" : ""}`} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
       <CheckButton checked={done} disabled={pending.has(item.id)} label={`${done ? "Undo" : "Complete"} ${item.title}`} onClick={() => onToggle(item)}/>
-      <button className="snap-row-copy" onClick={() => onEdit(item)}>
-        <strong>{item.title}</strong>
+      <button className="snap-row-copy" onClick={() => onEdit(item)} style={{ flex: 1, textAlign: "left" }}>
+        <strong style={{ textDecoration: done ? "line-through" : "none", opacity: done ? 0.6 : 1 }}>{item.title}</strong>
         <small>{meta}{area ? ` · ${translate(language, area as any) || area}` : ""}</small>
       </button>
       <ItemMenu onEdit={() => onEdit(item)} onDelete={() => onDelete(item)}/>

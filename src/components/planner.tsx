@@ -232,13 +232,19 @@ export default function Planner() {
             onView={(v: any) => navigate(v)}
             onCreate={create}
             onEdit={edit}
+            onEditArea={(area: LifeArea) => setEditor({ kind: "area", area })}
             onToggle={toggleItem}
             onArea={openArea}
             onFile={setPreviewFile}
             onDelete={(incoming: any) => {
-              // 🧠 AKILLI ADAPTÖR: Alt bileşenden gelen veri formatı ne olursa olsun EditorState yapısına dönüştürür
               if (!incoming) return;
-
+              if (incoming.kind === "area" || incoming.area) {
+                const targetArea = incoming.area || incoming;
+                if (confirm(language === "tr" ? `"${targetArea.name}" yaşam alanını silmek istediğinize emin misiniz?` : `Are you sure you want to delete "${targetArea.name}"?`)) {
+                  handleDelete({ kind: "area", area: targetArea });
+                }
+                return;
+              }
               const resolvedItem = incoming.item ? incoming.item : (incoming.id ? incoming : null);
               const resolvedKind = incoming.kind ? incoming.kind : (resolvedItem?.kind || "chore");
 
@@ -263,11 +269,17 @@ export default function Planner() {
             onBack={() => navigate("today")}
             onCreate={create}
             onEdit={edit}
+            onEditArea={(area: LifeArea) => setEditor({ kind: "area", area })}
             onToggle={toggleItem}
             onDelete={(incoming: any) => {
-              // 🧠 AKILLI ADAPTÖR: ResourceViews içindeki tıklamaları da güvenli formata tamir eder
               if (!incoming) return;
-
+              if (incoming.kind === "area" || incoming.area) {
+                const targetArea = incoming.area || incoming;
+                if (confirm(language === "tr" ? `"${targetArea.name}" yaşam alanını silmek istediğinize emin misiniz?` : `Are you sure you want to delete "${targetArea.name}"?`)) {
+                  handleDelete({ kind: "area", area: targetArea });
+                }
+                return;
+              }
               const resolvedItem = incoming.item ? incoming.item : (incoming.id ? incoming : null);
               const resolvedKind = incoming.kind ? incoming.kind : (resolvedItem?.kind || "chore");
 

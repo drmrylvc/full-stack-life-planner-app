@@ -80,25 +80,38 @@ export function TaskEditor({ editor, workspace, date, language = "en", onClose, 
       setBusy(true);
 
       try {
-        // Dosya transferi için FormData yapısı oluşturuluyor
-        const formData = new FormData();
-        formData.append("title", name);
-        formData.append("areaId", areas.some((area) => area.id === areaId) ? areaId : "");
-        formData.append("date", scheduledDay);
-        formData.append("description", notes.trim());
-        formData.append("completed", String(!!initial.completed));
-        formData.append("repeat", repeat);
-        formData.append("repeatCount", String(repeats));
+        const input: ItemInput = {
+          title: name,
+          areaId: areas.some((area) => area.id === areaId) ? areaId : null,
+          data: {
+            description: notes.trim(),
+            date: scheduledDay,
+            completed: !!initial.completed,
+            repeat,
+            repeatCount: repeats
+          }
+        };
 
-        // Eğer kullanıcı dosya seçtiyse pakete ekle
         if (selectedFile) {
-          formData.append("attachment", selectedFile);
+          try {
+            const fileData = await new Promise<{ content: string; mimeType: string; fileSize: number }>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve({ content: reader.result as string, mimeType: selectedFile.type || "application/octet-stream", fileSize: selectedFile.size });
+              reader.onerror = () => reject(new Error("Failed to read attached file."));
+              reader.readAsDataURL(selectedFile);
+            });
+            input.data.content = fileData.content;
+            input.data.mimeType = fileData.mimeType;
+            input.data.fileSize = fileData.fileSize;
+          } catch (fileErr) {
+            console.error("Task file attachment read error:", fileErr);
+          }
         }
 
-        // onSave fonksiyonuna girdi (input) olarak artık formData'yı gönderiyoruz
-        await onSave({ ...editor, kind: "chore" }, formData as any);
+        await onSave({ ...editor, kind: "chore" }, input);
         onClose();
       } catch (err) {
+        console.error("Task creation error:", err);
         setError(err instanceof Error ? err.message : copy.retry);
       } finally { submitting.current = false; setBusy(false); }
     }
@@ -115,6 +128,11 @@ export function TaskEditor({ editor, workspace, date, language = "en", onClose, 
             <label className="form-field"><span>{copy.area}<small>{copy.optional}</small></span><select aria-label={copy.area} value={areaId} onChange={(event) => setAreaId(event.target.value)}><option value="">{copy.personal}</option>{areas.map((area) => <option key={area.id} value={area.id}>{area.emoji} {area.name}</option>)}</select></label>
             <RepeatControls repeat={repeat} count={count} start={day || selectedDay} language={language} editingSeries={!!initial.seriesId} onRepeat={setRepeat} onCount={setCount}/>
             <label className="form-field"><span>{copy.notes}<small>{copy.optional}</small></span><textarea aria-label={copy.notes} rows={2} maxLength={12000} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder={copy.notesHint}/></label>
+            <label className="form-field">
+              <span>{copy.addFile} <small>{copy.optional}</small></span>
+              <input type="file" onChange={handleFileChange} style={{ width: "100%", padding: "10px", border: "1px dashed rgba(22, 19, 44, 0.2)", borderRadius: "12px", backgroundColor: "rgba(22, 19, 44, 0.02)", cursor: "pointer", color: "#16132c" }}/>
+              {selectedFile && <small style={{ color: "#10b981", display: "block", marginTop: "6px", fontWeight: "600" }}>📎 {selectedFile.name}</small>}
+            </label>
           </div>}
         </fieldset>
       </div>

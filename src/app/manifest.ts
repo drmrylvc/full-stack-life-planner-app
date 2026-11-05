@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     dir: "ltr",
     name: "ezlife26 — Your life, with intention",
     short_name: "ezlife26",
-    description: "Your targets, tasks, daily plans, habits, notes, and files — together on Android and iPhone.",
+    description: "Your targets, tasks, calendar, habits, notes, and files — together on Android and iPhone.",
     scope: "/",
     categories: ["lifestyle", "productivity"],
     prefer_related_applications: false,

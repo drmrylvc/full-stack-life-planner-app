@@ -65,12 +65,6 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
   const [description, setDescription] = useState(editor.area?.description || initialData.description || "");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      setSelectedFile(event.target.files[0]);
-    }
-  };
-
   const [areaId, setAreaId] = useState(savedAreas.some((area) => area.id === initialAreaId) ? initialAreaId! : "");
   const [addToCalendar, setAddToCalendar] = useState(false);
   const [time, setTime] = useState(initialData.time || "09:00");
@@ -102,7 +96,7 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
 
   function readFile(file?: File) {
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { setError("Choose a file up to 2 MB."); return; }
+    if (file.size > 10 * 1024 * 1024) { setError(language === "tr" ? "Lütfen 10 MB'a kadar bir dosya seçin." : "Choose a file up to 10 MB."); return; }
     setReading(true); setError("");
     const reader = new FileReader();
     reader.onload = () => {
@@ -114,6 +108,14 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
     reader.onerror = () => { setReading(false); setError("We couldn't read that file. Please choose it again."); };
     reader.readAsDataURL(file);
   }
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const f = event.target.files[0];
+      setSelectedFile(f);
+      readFile(f);
+    }
+  };
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -141,6 +143,9 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
           data.dueDate = dueDate || undefined;
           data.priority = priority;
           data.date = planDate || date;
+          if (fileData.content) {
+            Object.assign(data, { content: fileData.content, mimeType: fileData.mimeType, fileSize: fileData.fileSize });
+          }
         }
 
         if (editor.kind === "plan") { data.date = planDate; data.time = time; data.duration = duration; data.completed = initialData.completed || false; }
@@ -153,6 +158,24 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
           if (!fileData.url) delete data.url;
         }
         input = { title: title.trim(), areaId: savedAreas.some((area) => area.id === areaId) ? areaId : null, data };
+      }
+
+      if (editor.kind === "target" && fileData.content && savedAreas.some((a) => a.id === areaId)) {
+        try {
+          const fileInputObj: ItemInput = {
+            title: fileName || `${title.trim()} file`,
+            areaId: areaId,
+            data: {
+              content: fileData.content,
+              mimeType: fileData.mimeType,
+              fileSize: fileData.fileSize,
+              description: description || `Attached to target: ${title.trim()}`
+            }
+          };
+          await onSave({ ...editor, kind: "file", item: null, areaId }, fileInputObj);
+        } catch (fileErr) {
+          console.error("Attached target file creation error:", fileErr);
+        }
       }
 
       if (editor.kind === "target" && addToCalendar) {
@@ -442,8 +465,20 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
 
         <div className="modal-actions">
           {editing ? (
-            <button type="button" className="delete-button" onClick={() => { if (confirm("Are you sure?")) onDelete(editor); }} disabled={busy} style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer' }}>
-              <Trash2 size={16}/> Remove
+            <button
+              type="button"
+              className="delete-button"
+              onClick={() => {
+                const areaOrItemName = editor.area?.name || editor.item?.title || title || "this item";
+                const confirmMsg = language === "tr"
+                  ? `"${areaOrItemName}" ${isArea ? "yaşam alanını" : ""} silmek istediğinize emin misiniz?`
+                  : `Are you sure you want to delete "${areaOrItemName}"?`;
+                if (confirm(confirmMsg)) onDelete(editor);
+              }}
+              disabled={busy}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: '600' }}
+            >
+              <Trash2 size={16}/> {isArea ? (language === "tr" ? "Yaşam Alanını Sil" : "Delete Life Area") : (language === "tr" ? "Sil" : "Remove")}
             </button>
           ) : <div />}
           <div style={{ display: 'flex', gap: '10px' }}>

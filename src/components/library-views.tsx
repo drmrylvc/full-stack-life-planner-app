@@ -96,27 +96,59 @@ export function AreasView({ workspace, pending, areaId, onAreaFilter, onCreate, 
                 </div>
 
                 {shown.length ? (
-                  <div className="area-resource-list panel">
-                    {shown.map((item) => {
-                      const complete = item.kind === "habit" ? item.data.history?.includes(dateISO()) : item.data.completed;
-                      return <article key={item.id} className="area-resource-row">
-                        <span className="area-resource-icon">{item.kind === "file" ? <FileGlyph item={item}/> : item.kind === "target" ? <Target size={20}/> : item.kind === "habit" ? <Zap size={20}/> : item.kind === "plan" ? <CalendarDays size={20}/> : <StickyNote size={20}/>}</span>
-                        <button className="area-resource-copy" onClick={() => item.kind === "file" ? onFile(item) : onEdit(item)}>
-                          <strong>{item.title}</strong>
-                          <small>{itemSubtitle(item)}</small>
-                          <RepeatBadge data={item.data}/>
-                        </button>
-                        {item.kind === "target" && <div className="area-target-progress"><span>{item.data.progress || 0}%</span><div className="progress-track"><span style={{ width: `${item.data.progress || 0}%` }}/></div></div>}
-                        {["target", "habit", "plan", "chore"].includes(item.kind) && <CheckButton checked={complete} disabled={pending.has(item.id)} label="Complete" onClick={() => onToggle(item)}/>}
-                        <ItemMenu onEdit={() => onEdit(item)} onDelete={() => onDelete({ kind: item.kind, item })}/>
-                      </article>;
-                    })}
-                  </div>
+                  detailKind === "file" ? (
+                    <div className="file-grid">
+                      {shown.map((file) => (
+                        <article key={file.id} className="library-file-card">
+                          <button className={`library-file-preview ${file.data.mimeType?.startsWith("image/") ? "is-image" : file.data.mimeType === "application/pdf" ? "is-pdf" : "is-text"}`} onClick={() => onFile(file)}>
+                            {file.data.mimeType?.startsWith("image/") ? (
+                              <img src={file.data.url || file.data.content} alt={file.data.description || file.title}/>
+                            ) : (
+                              <div className="document-preview">
+                                <FileText size={38}/>
+                                <span>{file.data.mimeType === "application/pdf" ? "PDF DOCUMENT" : "PERSONAL DOCUMENT"}</span>
+                                <span className="document-line"/>
+                                <span className="document-line short"/>
+                                <span className="document-line"/>
+                              </div>
+                            )}
+                          </button>
+                          <div className="library-file-info">
+                            <div>
+                              <button className="file-title-button" onClick={() => onFile(file)}>{file.title}</button>
+                              <ItemMenu onEdit={() => onEdit(file)} onDelete={() => onDelete({ kind: "file", item: file })}/>
+                            </div>
+                            <div className="library-file-meta">
+                              <span>{humanSize(file.data.fileSize)}<span>·</span>{new Date(file.createdAt).toLocaleDateString("en", { month: "short", day: "numeric" })}</span>
+                              <a className="icon-button" href={`/api/files/${file.id}`} aria-label={`Download ${file.title}`} download><ArrowDownToLine size={15}/></a>
+                            </div>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="area-resource-list panel">
+                      {shown.map((item) => {
+                        const complete = item.kind === "habit" ? item.data.history?.includes(dateISO()) : item.data.completed;
+                        return <article key={item.id} className="area-resource-row">
+                          <span className="area-resource-icon">{item.kind === "file" ? <FileGlyph item={item}/> : item.kind === "target" ? <Target size={20}/> : item.kind === "habit" ? <Zap size={20}/> : item.kind === "plan" ? <CalendarDays size={20}/> : <StickyNote size={20}/>}</span>
+                          <button className="area-resource-copy" onClick={() => item.kind === "file" ? onFile(item) : onEdit(item)}>
+                            <strong>{item.title}</strong>
+                            <small>{itemSubtitle(item)}</small>
+                            <RepeatBadge data={item.data}/>
+                          </button>
+                          {item.kind === "target" && <div className="area-target-progress"><span>{item.data.progress || 0}%</span><div className="progress-track"><span style={{ width: `${item.data.progress || 0}%` }}/></div></div>}
+                          {["target", "habit", "plan", "chore"].includes(item.kind) && <CheckButton checked={complete} disabled={pending.has(item.id)} label="Complete" onClick={() => onToggle(item)}/>}
+                          <ItemMenu onEdit={() => onEdit(item)} onDelete={() => onDelete({ kind: item.kind, item })}/>
+                        </article>;
+                      })}
+                    </div>
+                  )
                 ) : (
                   <EmptyState
                     icon={detailKind === "target" ? Target : detailKind === "file" ? FolderOpen : Sprout}
                     title={language === "tr" ? "Burada henüz bir şey yok" : "A little space for you"}
-                    description="Mind, heart, body, and beyond."
+                    description={language === "tr" ? "Bu yaşam alanına fotoğraf veya doküman ekleyebilirsiniz." : "Add photos, receipts, or documents to this life area."}
                     action={language === "tr" ? "Yeni Öge Ekle" : "Add item"}
                     onAction={() => onCreate(detailKind, selected.id)}
                   />
