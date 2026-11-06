@@ -10,6 +10,7 @@ import { areaTheme } from "@/lib/theme";
 import { addDays, humanSize, parseDate, dateISO } from "@/lib/utils";
 import { RepeatControls } from "./repeat-controls";
 import { AreaTag, FileGlyph, Modal, Spinner } from "./ui";
+import { requestNotificationPermission, scheduleTaskReminder } from "@/lib/notifications";
 
 const EMOJIS = ["🌱", "❤️", "🧠", "👨‍👩‍👧‍👦", "💼", "🏋️", "🎨", "✨", "🧘", "📚", "✈️", "☀️"];
 
@@ -79,6 +80,8 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
   const [repeatCount, setRepeatCount] = useState(String(initialData.seriesId ? remainingRepeats(initialData) : initialData.repeatCount || 3));
   const [unit, setUnit] = useState(initialData.unit || "");
   const [pinned, setPinned] = useState(initialData.pinned || false);
+  const [remindPhone, setRemindPhone] = useState(initialData.remindPhone || false);
+  const [reminderTime, setReminderTime] = useState(initialData.reminderTime || "at_time");
   const [emoji, setEmoji] = useState(editor.area?.emoji || "🌱");
   const [color, setColor] = useState<AreaColor>(editor.area?.color || "lavender");
   const [fileData, setFileData] = useState<ItemData>(initialData);
@@ -149,10 +152,15 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
         }
 
         if (editor.kind === "plan") { data.date = planDate; data.time = time; data.duration = duration; data.completed = initialData.completed || false; }
-        if (editor.kind === "chore") { data.date = planDate; data.completed = initialData.completed || false; }
+        if (editor.kind === "chore") { data.date = planDate || date; data.completed = initialData.completed || false; }
         if (supportsRepeat(editor.kind) && !addToCalendar) { data.repeat = repeat; data.repeatCount = repeat === "none" ? 0 : Number(repeatCount); }
         if (editor.kind === "habit") { data.unit = unit; data.history = initialData.history || []; }
         if (editor.kind === "note") data.pinned = pinned;
+        if (remindPhone) {
+          data.remindPhone = true;
+          data.reminderTime = reminderTime;
+          scheduleTaskReminder(title.trim(), planDate || date, time, reminderTime);
+        }
         if (editor.kind === "file") {
           Object.assign(data, fileData, { description, amount: Math.round((Number(amount) || 0) * 100) });
           if (!fileData.url) delete data.url;
@@ -292,9 +300,9 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
 
             {!isArea && (
               <label className="form-field">
-                <span>Life area <small>Optional</small></span>
+                <span>{editor.kind === "file" ? (language === "tr" ? "Klasör / Yaşam Alanı" : "Folder / Life Area") : "Life area"} <small>Optional</small></span>
                 <select value={areaId} onChange={(event) => setAreaId(event.target.value)}>
-                  <option value="">Personal · No life area</option>
+                  <option value="">Personal · No folder</option>
                   {savedAreas.map((area) => (
                     <option key={area.id} value={area.id}>{area.emoji} {area.name}</option>
                   ))}
@@ -313,7 +321,36 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
               <>
                 <input type="file" className="visually-hidden" ref={fileInput} onChange={(event) => readFile(event.target.files?.[0])}/>
                 <div className={`file-dropzone ${dragging ? "dragging" : ""} ${fileData.content || fileData.url ? "has-file" : ""}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); readFile(event.dataTransfer.files?.[0]); }}>
-                  {fileData.content || fileData.url ? <><span className="uploaded-file-icon">{fileData.mimeType?.startsWith("image/") ? <ImagePlus size={26}/> : <FileText size={26}/>}</span><span><strong>{fileName}</strong><small>{humanSize(fileData.fileSize)} · Ready to keep</small></span><button type="button" className="text-button" onClick={() => fileInput.current?.click()}>Replace</button></> : <button type="button" onClick={() => fileInput.current?.click()}>{reading ? <Spinner size={28}/> : <UploadCloud size={30}/>}<strong>{reading ? "Getting your file ready…" : "Drop a little something here"}</strong><span>or <u>browse files</u> · Up to 2 MB</span></button>}
+                  {fileData.content || fileData.url ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%" }}>
+                      <span className="uploaded-file-icon">
+                        {fileData.mimeType?.startsWith("image/") ? (
+                          <img
+                            src={fileData.content || fileData.url}
+                            alt="Preview"
+                            style={{ width: "54px", height: "54px", objectFit: "cover", borderRadius: "8px", border: "1px solid rgba(0,0,0,0.1)" }}
+                          />
+                        ) : (
+                          <FileText size={28}/>
+                        )}
+                      </span>
+                      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <strong style={{ fontSize: "14px" }}>{fileName}</strong>
+                        <small style={{ color: "#64748b" }}>
+                          {humanSize(fileData.fileSize)} · 📁 Folder: {savedAreas.find((a) => a.id === areaId)?.emoji || "📂"} {savedAreas.find((a) => a.id === areaId)?.name || "Personal"}
+                        </small>
+                      </div>
+                      <button type="button" className="text-button" onClick={() => fileInput.current?.click()}>
+                        Replace
+                      </button>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => fileInput.current?.click()}>
+                      {reading ? <Spinner size={28}/> : <UploadCloud size={30}/>}
+                      <strong>{reading ? "Getting your file ready…" : "Drop a picture or document here"}</strong>
+                      <span>or <u>browse files</u> · Photos, PDFs, Docs up to 10 MB</span>
+                    </button>
+                  )}
                 </div>
                 <label className="form-field">
                   <span>Amount / Cost <small>Optional</small></span>
@@ -337,15 +374,6 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
                     {selectedFile && <small style={{ color: "#10b981", display: "block", marginTop: "6px", fontWeight: "600" }}>📎 Selected File: {selectedFile.name}</small>}
                   </label>
                 )}
-
-                <label className="form-field">
-                  <span>Priority</span>
-                  <select value={priority} onChange={(event) => setPriority(event.target.value as ItemData["priority"])}>
-                    <option value="low">Low · When there's room</option>
-                    <option value="medium">Medium · Worth making time</option>
-                    <option value="high">High · A little more focus</option>
-                  </select>
-                </label>
 
                 <div className="form-field progress-form-field">
                   <span>How far have you come? <strong>{progress}%</strong></span>
@@ -440,6 +468,43 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
                 </div>
                 <RepeatControls repeat={repeat} count={repeatCount} start={planDate || date} language={language} editingSeries={!!initialData.seriesId} onRepeat={setRepeat} onCount={setRepeatCount}/>
               </>
+            )}
+
+            {(editor.kind === "plan" || editor.kind === "chore" || editor.kind === "target") && (
+              <div style={{ padding: "12px", backgroundColor: "rgba(139, 92, 246, 0.05)", borderRadius: "12px", border: "1px solid rgba(139, 92, 246, 0.15)", marginTop: "12px" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontWeight: "600", color: "#16132c", fontSize: "13px" }}>
+                  <input
+                    type="checkbox"
+                    checked={remindPhone}
+                    onChange={async (e) => {
+                      const checked = e.target.checked;
+                      setRemindPhone(checked);
+                      if (checked) {
+                        await requestNotificationPermission();
+                      }
+                    }}
+                    style={{ width: "18px", height: "18px", accentColor: "#8b5cf6" }}
+                  />
+                  <span>🔔 {language === "tr" ? "Telefondan Bildirim / Hatırlatıcı Al" : "Get Phone Reminder"}</span>
+                </label>
+
+                {remindPhone && (
+                  <div style={{ marginTop: "10px" }}>
+                    <label className="form-field">
+                      <span>{language === "tr" ? "Hatırlatma Zamanı" : "Reminder Timing"}</span>
+                      <select value={reminderTime} onChange={(e) => setReminderTime(e.target.value)}>
+                        <option value="at_time">{language === "tr" ? "Etkinlik / Görev zamanında" : "At time of event / task"}</option>
+                        <option value="5_min_before">{language === "tr" ? "5 dakika önce" : "5 minutes before"}</option>
+                        <option value="10_min_before">{language === "tr" ? "10 dakika önce" : "10 minutes before"}</option>
+                        <option value="15_min_before">{language === "tr" ? "15 dakika önce" : "15 minutes before"}</option>
+                        <option value="30_min_before">{language === "tr" ? "30 dakika önce" : "30 minutes before"}</option>
+                        <option value="1_hour_before">{language === "tr" ? "1 saat önce" : "1 hour before"}</option>
+                        <option value="1_day_before">{language === "tr" ? "1 gün önce" : "1 day before"}</option>
+                      </select>
+                    </label>
+                  </div>
+                )}
+              </div>
             )}
 
             {editor.kind === "habit" && (

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ArrowDownToLine, ArrowLeft, ArrowUpRight, CalendarDays, Check, FileText, FolderOpen, Image as ImageIcon, LayoutGrid, List, Pencil, Pin, Plus, Sprout, StickyNote, Target, Trash2, Zap } from "lucide-react";
 import { RESOURCE_LABELS, type ItemKind } from "@/lib/types";
-import { dateISO, humanSize, itemSubtitle, progressForArea } from "@/lib/utils";
+import { dateISO, getWeeklyAreaReport, humanSize, itemSubtitle, progressForArea } from "@/lib/utils";
 import { translate } from "@/lib/i18n";
 import type { ResourceProps } from "./resource-types";
 import { AreaTag, CheckButton, colorStyle, EmptyState, FileGlyph, ProgressRing } from "./ui";
@@ -81,6 +81,60 @@ export function AreasView({ workspace, pending, areaId, onAreaFilter, onCreate, 
                     <button className="icon-button" aria-label={`Delete ${selected.name}`} onClick={() => onDelete({ kind: "area", area: selected })}><Trash2 size={17}/></button>
                   </div>
                 </section>
+
+                {(() => {
+                  const report = getWeeklyAreaReport(selected, workspace.items, language);
+                  return (
+                    <div style={{
+                      backgroundColor: "#ffffff",
+                      borderRadius: "16px",
+                      padding: "16px 20px",
+                      margin: "16px 0",
+                      border: "1px solid #e2e8f0",
+                      boxShadow: "0 4px 15px rgba(0,0,0,0.03)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "12px"
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontSize: "18px" }}>📊</span>
+                          <strong style={{ fontSize: "15px", fontWeight: "700", color: "#16132c" }}>
+                            {language === "tr" ? "Ne kadar ilerledin?" : "How far have you come?"}
+                          </strong>
+                        </div>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#8b5cf6", backgroundColor: "#f3e8ff", padding: "4px 10px", borderRadius: "12px" }}>
+                          {language === "tr" ? "Haftalık Pazar Raporu" : "Weekly Sunday Report"}
+                        </span>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <div style={{ flex: 1, backgroundColor: "#f1f5f9", height: "10px", borderRadius: "5px", overflow: "hidden" }}>
+                          <div style={{ width: `${report.percentage}%`, height: "100%", backgroundColor: report.status === "great" ? "#10b981" : "#8b5cf6", transition: "width 0.3s ease" }} />
+                        </div>
+                        <span style={{ fontSize: "13px", fontWeight: "700", color: "#16132c" }}>
+                          {report.completed} / {report.total} {language === "tr" ? "görev tamamlandı" : "tasks completed"} ({report.percentage}%)
+                        </span>
+                      </div>
+
+                      <div style={{
+                        padding: "10px 14px",
+                        borderRadius: "10px",
+                        backgroundColor: report.status === "great" ? "#ecfdf5" : report.status === "encouraging" ? "#fff7ed" : "#f8fafc",
+                        border: `1px solid ${report.status === "great" ? "#a7f3d0" : report.status === "encouraging" ? "#fed7aa" : "#e2e8f0"}`,
+                        color: report.status === "great" ? "#065f46" : report.status === "encouraging" ? "#9a3412" : "#475569",
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px"
+                      }}>
+                        <span>{report.status === "great" ? "🎉" : report.status === "encouraging" ? "💪" : "ℹ️"}</span>
+                        <span>{report.message}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="resource-toolbar">
                   <div className="filter-tabs">

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { BarChart3, CalendarDays, ChevronDown, FolderOpen, Image as ImageIcon, Pencil, Plus, Trash2, Zap } from "lucide-react";
 import { localeFor, translate } from "@/lib/i18n";
-import { addDays, dateISO, formatDate, humanSize, parseDate, progressForArea } from "@/lib/utils";
+import { addDays, dateISO, formatDate, getWeeklyAreaReport, humanSize, parseDate, progressForArea } from "@/lib/utils";
 import ItemMenu from "./item-menu";
 import { areaTheme } from "@/lib/theme";
 import { CheckButton, FileGlyph } from "./ui";
@@ -22,6 +22,7 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
   const t = (key: any, vars?: any) => translate(language, key, vars);
 
   const [planView, setPlanView] = useState<"daily" | "weekly" | "monthly">("daily");
+  const [selectedMonthlyDate, setSelectedMonthlyDate] = useState<string>(date || dateISO());
 
   const habits = items.filter((item: any) => item.kind === "habit");
   const doneHabits = habits.filter((item: any) => item.kind === "habit" && item.data.history?.includes(dateISO())).length;
@@ -52,9 +53,24 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
   const monthDaysList = Array.from({ length: totalMonthDays }, (_, i) => {
     const dNum = i + 1;
     const dStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(dNum).padStart(2, "0")}`;
-    const dayPlans = items.filter((item: any) => item.kind === "plan" && item.data.date === dStr);
+    const dayPlans = items.filter((item: any) => {
+      const isPlanOrTarget = item.kind === "plan" || item.kind === "target";
+      const matchesDate = item.data.date === dStr || item.data.dueDate === dStr;
+      return isPlanOrTarget && matchesDate;
+    });
     return { dNum, dStr, dayPlans };
   });
+
+  const activeMonthlyDate = selectedMonthlyDate || date || dateISO();
+  const selectedDayData = monthDaysList.find((entry) => entry.dStr === activeMonthlyDate) || {
+    dNum: parseDate(activeMonthlyDate).getDate(),
+    dStr: activeMonthlyDate,
+    dayPlans: items.filter((item: any) => {
+      const isPlanOrTarget = item.kind === "plan" || item.kind === "target";
+      const matchesDate = item.data.date === activeMonthlyDate || item.data.dueDate === activeMonthlyDate;
+      return isPlanOrTarget && matchesDate;
+    })
+  };
 
   return (
     <div className="snap-board">
@@ -68,6 +84,7 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
               const count = items.filter((item: any) => item.kind === "target" && item.areaId === area.id).length;
               const filesInArea = items.filter((item: any) => item.kind === "file" && item.areaId === area.id).length;
               const value = progressForArea(area, items);
+              const report = getWeeklyAreaReport(area, items, language);
               return (
                 <button key={area.id} className={`snap-area ${theme.dark ? "dark-ink" : ""}`} style={{ background: theme.gradient, color: theme.ink, position: "relative" }} onClick={() => onArea(area)}>
                   <div style={{ position: "absolute", top: "10px", right: "10px", display: "flex", gap: "4px", zIndex: 2 }}>
@@ -126,6 +143,11 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
                     {t(area.name as any) || area.name}
                   </strong>
                   <small style={{ color: theme.soft }}>{translate(language, area.description as any) || area.description}</small>
+                  {report.total > 0 && (
+                    <small style={{ color: "#ffffff", display: "block", marginTop: "4px", fontSize: "10.5px", fontWeight: "600", opacity: 0.95 }}>
+                      {report.status === "great" ? "🎉 " : report.status === "encouraging" ? "💪 " : ""}{report.message}
+                    </small>
+                  )}
                   <span className="snap-area-bar"><span style={{ width: `${value}%` }}/></span>
                   <span className="snap-area-meta"><span>{t("targetsShort", { n: count })} · {value}%</span><span className="snap-file-count"><ImageIcon size={11}/>{filesInArea}</span></span>
                 </button>
@@ -264,17 +286,154 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
           )}
 
           {planView === "monthly" && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "6px", textAlign: "center", padding: "10px 0" }}>
-              {monthDaysList.map(({ dNum, dStr, dayPlans }) => (
-                <div key={dStr} style={{ padding: "8px 4px", backgroundColor: dStr === dateISO() ? "#16132c" : "#f8fafc", color: dStr === dateISO() ? "#ffffff" : "#16132c", borderRadius: "8px", fontSize: "12px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
-                  <strong style={{ fontSize: "13px" }}>{dNum}</strong>
-                  {dayPlans.length > 0 && (
-                    <span style={{ fontSize: "9px", background: dStr === dateISO() ? "#8b5cf6" : "#e2e8f0", color: dStr === dateISO() ? "#fff" : "#334155", padding: "1px 5px", borderRadius: "10px", fontWeight: "700" }}>
-                      🎯 {dayPlans.length}
-                    </span>
-                  )}
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "10px 0" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "6px", textAlign: "center" }}>
+                {monthDaysList.map(({ dNum, dStr, dayPlans }) => {
+                  const isToday = dStr === dateISO();
+                  const isSelected = dStr === activeMonthlyDate;
+                  return (
+                    <button
+                      key={dStr}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMonthlyDate(dStr);
+                      }}
+                      style={{
+                        padding: "8px 4px",
+                        backgroundColor: isSelected ? "#16132c" : isToday ? "#eee5ff" : "#f8fafc",
+                        color: isSelected ? "#ffffff" : isToday ? "#694bb1" : "#16132c",
+                        border: isSelected ? "2px solid #8b5cf6" : "1px solid rgba(0,0,0,0.05)",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "3px",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                        boxShadow: isSelected ? "0 4px 12px rgba(139, 92, 246, 0.2)" : "none"
+                      }}
+                    >
+                      <strong style={{ fontSize: "13px" }}>{dNum}</strong>
+                      {dayPlans.length > 0 && (
+                        <span
+                          style={{
+                            fontSize: "9.5px",
+                            background: isSelected ? "#8b5cf6" : "#e2e8f0",
+                            color: isSelected ? "#ffffff" : "#334155",
+                            padding: "2px 6px",
+                            borderRadius: "10px",
+                            fontWeight: "700"
+                          }}
+                        >
+                          🎯 {dayPlans.length}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ backgroundColor: "#f8fafc", borderRadius: "12px", padding: "14px", border: "1px solid #e2e8f0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", borderBottom: "1px solid #e2e8f0", paddingBottom: "10px" }}>
+                  <div>
+                    <h3 style={{ fontSize: "14px", fontWeight: "700", color: "#16132c" }}>
+                      📅 {formatDate(activeMonthlyDate, { weekday: "long", month: "short", day: "numeric" }, localeFor(language))}
+                    </h3>
+                    <p style={{ fontSize: "12px", color: "#64748b", margin: "2px 0 0 0" }}>
+                      {selectedDayData.dayPlans.length
+                        ? `${selectedDayData.dayPlans.length} ${language === "tr" ? "hedef & plan mevcut" : "targets & plans scheduled"}`
+                        : (language === "tr" ? "Bu tarih için henüz hedef veya plan yok" : "No targets or plans scheduled for this date")}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPlanView("daily");
+                    }}
+                    style={{
+                      fontSize: "12px",
+                      color: "#694bb1",
+                      background: "#eee5ff",
+                      border: "1px solid #d8cdf4",
+                      padding: "5px 12px",
+                      borderRadius: "16px",
+                      cursor: "pointer",
+                      fontWeight: "600"
+                    }}
+                  >
+                    {language === "tr" ? "Günlük Görünüme Geç" : "Open Daily View"}
+                  </button>
                 </div>
-              ))}
+
+                {selectedDayData.dayPlans.length ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    {selectedDayData.dayPlans.map((item: any) => {
+                      const done = item.kind === "target" ? item.data.progress === 100 : !!item.data.completed;
+                      const isTarget = item.kind === "target";
+                      return (
+                        <div
+                          key={item.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "10px 12px",
+                            backgroundColor: "#ffffff",
+                            borderRadius: "8px",
+                            border: "1px solid rgba(0,0,0,0.05)",
+                            gap: "10px"
+                          }}
+                        >
+                          <CheckButton checked={done} disabled={pending.has(item.id)} label={`${done ? "Undo" : "Complete"} ${item.title}`} onClick={() => onToggle(item)}/>
+                          <button
+                            type="button"
+                            onClick={() => onEdit(item)}
+                            style={{ flex: 1, textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <span style={{ fontSize: "13px" }}>{isTarget ? "🎯" : "📅"}</span>
+                              <strong style={{ fontSize: "13px", fontWeight: "600", color: done ? "#94a3b8" : "#1e293b", textDecoration: done ? "line-through" : "none" }}>
+                                {item.title}
+                              </strong>
+                            </div>
+                            <small style={{ fontSize: "11px", color: "#64748b", display: "block", marginTop: "2px" }}>
+                              {item.data.time ? `${item.data.time}` : (language === "tr" ? "Tüm gün" : "All day")}
+                              {areaFor(item)?.name ? ` · ${translate(language, areaFor(item).name as any) || areaFor(item).name}` : ""}
+                              {isTarget && item.data.progress !== undefined ? ` · ${item.data.progress}%` : ""}
+                            </small>
+                          </button>
+                          <ItemMenu onEdit={() => onEdit(item)} onDelete={() => onDelete(item)}/>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ textAlign: "center", padding: "12px 0" }}>
+                    <button
+                      type="button"
+                      onClick={() => onCreate("plan")}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "8px 16px",
+                        backgroundColor: "#16132c",
+                        color: "#ffffff",
+                        borderRadius: "20px",
+                        fontSize: "12px",
+                        fontWeight: "600",
+                        border: "none",
+                        cursor: "pointer"
+                      }}
+                    >
+                      <Plus size={14} />
+                      {language === "tr" ? "Bu Güne Hedef / Plan Ekle" : "Add Target / Plan to This Date"}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </Accordion>
@@ -346,11 +505,15 @@ function Accordion({ icon, iconClass, title, subtitle, badge, open, onToggle, ad
 
 function Row({ item, pending, meta, area, onEdit, onToggle, onDelete, language }: any) {
   const done = !!item.data.completed;
+  const hasReminder = !!item.data.remindPhone;
   return (
     <div className={`snap-row ${done ? "is-done" : ""}`} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
       <CheckButton checked={done} disabled={pending.has(item.id)} label={`${done ? "Undo" : "Complete"} ${item.title}`} onClick={() => onToggle(item)}/>
       <button className="snap-row-copy" onClick={() => onEdit(item)} style={{ flex: 1, textAlign: "left" }}>
-        <strong style={{ textDecoration: done ? "line-through" : "none", opacity: done ? 0.6 : 1 }}>{item.title}</strong>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <strong style={{ textDecoration: done ? "line-through" : "none", opacity: done ? 0.6 : 1 }}>{item.title}</strong>
+          {hasReminder && <span title="Phone Reminder Set" style={{ fontSize: "12px" }}>🔔</span>}
+        </div>
         <small>{meta}{area ? ` · ${translate(language, area as any) || area}` : ""}</small>
       </button>
       <ItemMenu onEdit={() => onEdit(item)} onDelete={() => onDelete(item)}/>

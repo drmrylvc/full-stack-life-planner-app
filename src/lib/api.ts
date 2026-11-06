@@ -52,6 +52,8 @@ export const dataSchema = z.object({
   url: z.string().max(25000000).optional(),
   amount: z.number().int().min(0).max(100000000).optional(),
   pinned: z.boolean().optional(),
+  remindPhone: z.boolean().optional(),
+  reminderTime: z.string().max(100).optional(),
   repeat: z.enum(["none", "daily", "weekly", "monthly", "yearly"]).optional(),
   repeatCount: z.number().int("Number of repeats must be a whole number.").min(0).max(MAX_REPEATS, `Choose up to ${MAX_REPEATS} repeats.`).optional(),
   seriesId: z.string().uuid().optional(),

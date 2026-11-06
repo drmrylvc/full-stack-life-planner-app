@@ -47,9 +47,51 @@ export function humanSize(bytes = 0): string {
 }
 
 export function progressForArea(area: LifeArea, items: PlannerItem[]): number {
-  const targets = items.filter((item) => item.kind === "target" && item.areaId === area.id);
+  const targets = items.filter((item) => (item.kind === "target" || item.kind === "chore" || item.kind === "plan") && item.areaId === area.id);
   if (!targets.length) return 0;
-  return Math.round(targets.reduce((sum, item) => sum + (item.data.progress || 0), 0) / targets.length);
+  const completedCount = targets.filter((item) => item.data.completed || item.data.progress === 100).length;
+  return Math.round((completedCount / targets.length) * 100);
+}
+
+export function getWeeklyAreaReport(area: LifeArea, items: PlannerItem[], language = "en") {
+  const areaItems = items.filter((item) => item.areaId === area.id);
+  const areaTasks = areaItems.filter((item) => item.kind === "chore" || item.kind === "target" || item.kind === "plan");
+
+  const todayStr = dateISO();
+  const todayObj = parseDate(todayStr);
+  const dayOfWeek = todayObj.getDay();
+  const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+  const sundayStr = addDays(todayStr, daysUntilSunday);
+  const mondayStr = addDays(sundayStr, -6);
+
+  const total = areaTasks.length;
+  const completed = areaTasks.filter((item) => item.data.completed || item.data.progress === 100).length;
+  const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  let message = "";
+  let status: "great" | "encouraging" | "empty" = "empty";
+
+  if (total > 0) {
+    if (completed === total) {
+      status = "great";
+      message = language === "tr" ? "Harika gidiyorsun, tebrikler!" : "you are doing great, congrats";
+    } else {
+      status = "encouraging";
+      message = language === "tr" ? "Hedeflerini kaçırdın ama pes etme, başaracaksın" : "you missed your targets but don’t give up, you will do it";
+    }
+  } else {
+    message = language === "tr" ? "Bu alan için yeni bir niyet ekleyin." : "Add a task or target for this area.";
+  }
+
+  return {
+    total,
+    completed,
+    percentage,
+    status,
+    message,
+    sundayStr,
+    mondayStr
+  };
 }
 
 export function initials(name: string): string {
