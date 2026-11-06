@@ -364,7 +364,11 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
                 <label className="form-field">
                   <span>A gentle deadline</span>
                   <input type="date" aria-label="A gentle deadline" value={dueDate} onChange={(event) => setDueDate(event.target.value)}/>
-                  <small>Optional. A target can be saved without a deadline.</small>
+                  <small style={{ color: "#ef4444", fontSize: "12.5px", fontWeight: "600", display: "block", marginTop: "4px" }}>
+                    {language === "tr"
+                      ? "Haftalık rapor için isteğe bağlı. Bir hedef son tarih olmadan da kaydedilebilir."
+                      : "Optional for weekly report. A target can be saved without a deadline."}
+                  </small>
                 </label>
 
                 {!isArea && (
@@ -374,12 +378,6 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
                     {selectedFile && <small style={{ color: "#10b981", display: "block", marginTop: "6px", fontWeight: "600" }}>📎 Selected File: {selectedFile.name}</small>}
                   </label>
                 )}
-
-                <div className="form-field progress-form-field">
-                  <span>How far have you come? <strong>{progress}%</strong></span>
-                  <input type="range" min="0" max="100" step="5" value={progress} onChange={(event) => setProgress(Number(event.target.value))}/>
-                  <div className="range-labels"><span>Just getting started</span><span>You did it!</span></div>
-                </div>
 
                 <div style={{ marginTop: '16px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '16px', border: '1px solid rgba(22, 19, 44, 0.1)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

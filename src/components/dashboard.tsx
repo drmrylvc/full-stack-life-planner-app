@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, CalendarDays, ChevronDown, FolderOpen, Image as ImageIcon, Pencil, Plus, Trash2, Zap } from "lucide-react";
+import { BarChart3, CalendarDays, ChevronDown, FolderOpen, Image as ImageIcon, ListChecks, Pencil, Plus, Trash2, Zap } from "lucide-react";
 import { localeFor, translate } from "@/lib/i18n";
 import { addDays, dateISO, formatDate, getWeeklyAreaReport, humanSize, parseDate, progressForArea } from "@/lib/utils";
 import ItemMenu from "./item-menu";
@@ -21,7 +21,7 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
   const { items, areas } = workspace;
   const t = (key: any, vars?: any) => translate(language, key, vars);
 
-  const [planView, setPlanView] = useState<"daily" | "weekly" | "monthly">("daily");
+  const [planView, setPlanView] = useState<"daily" | "weekly" | "monthly" | null>(null);
   const [selectedMonthlyDate, setSelectedMonthlyDate] = useState<string>(date || dateISO());
 
   const habits = items.filter((item: any) => item.kind === "habit");
@@ -196,13 +196,13 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
 
       <div className="snap-stack">
         <Accordion icon={<CalendarDays size={18}/>} iconClass="calendar" title={t("dailyPlan")} subtitle={nextPlanSubtitle} open={open.plan} onToggle={() => toggle("plan")} addLabel={language === "tr" ? "Plan Ekle" : "Add Plan"} onAdd={() => onCreate("plan")}>
-          <div style={{ display: "flex", gap: "6px", marginBottom: "16px", borderBottom: "1px solid rgba(0,0,0,0.05)", paddingBottom: "10px" }}>
+          <div style={{ display: "flex", gap: "6px", marginBottom: planView ? "16px" : "4px", borderBottom: planView ? "1px solid rgba(0,0,0,0.05)" : "none", paddingBottom: "10px" }}>
             {["daily", "weekly", "monthly"].map((mode) => (
               <button
                 key={mode}
                 onClick={(e: any) => {
                   e.stopPropagation();
-                  setPlanView(mode as any);
+                  setPlanView((prev) => (prev === mode ? null : (mode as any)));
                 }}
                 style={{
                   padding: "6px 16px",
@@ -210,8 +210,8 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
                   fontSize: "13px",
                   fontWeight: "600",
                   backgroundColor: planView === mode ? "#16132c" : "transparent",
-                  color: planView === mode ? "#fff" : "#666",
-                  border: planView === mode ? "1px solid #16132c" : "1px solid #e2e8f0",
+                  color: planView === mode ? "#ffffff" : "#16132c",
+                  border: planView === mode ? "1px solid #16132c" : "1px solid #cbd5e1",
                   cursor: "pointer",
                   transition: "all 0.2s ease"
                 }}
@@ -438,7 +438,7 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
           )}
         </Accordion>
 
-        <Accordion icon={<span aria-hidden="true">✅</span>} iconClass="tasks" title={t("tasks")} subtitle={t("tasksHint")} badge={`${doneChores}/${chores.length}`} open={open.chores} onToggle={() => toggle("chores")} addLabel={t("addTask")} onAdd={() => { setOpen((current: any) => ({ ...current, chores: true })); onCreate("chore"); }}>
+        <Accordion icon={<ListChecks size={18}/>} iconClass="tasks" title={t("tasks")} subtitle={t("tasksHint")} badge={`${doneChores}/${chores.length}`} open={open.chores} onToggle={() => toggle("chores")} addLabel={t("addTask")} onAdd={() => { setOpen((current: any) => ({ ...current, chores: true })); onCreate("chore"); }}>
           {chores.length ? chores.map((item: any) => (
             <Row key={item.id} item={item} pending={pending} meta={areaFor(item)?.name || t("tasks")} onEdit={onEdit} onToggle={onToggle} onDelete={onDelete} language={language}/>
           )) : <Empty text={t("noTasks")} action={t("addTask")} onAction={() => onCreate("chore")}/>}
