@@ -2,6 +2,10 @@
   "version": 4,
   "routes": {
     "/": {
+      "routeType": "page",
+      "response": "complete",
+      "compute": "static",
+      "htmlSize": 9354,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -26,6 +30,10 @@
       ]
     },
     "/_global-error": {
+      "routeType": "page",
+      "response": "complete",
+      "compute": "static",
+      "htmlSize": 9058,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -51,6 +59,10 @@
     },
     "/_not-found": {
       "initialStatus": 404,
+      "routeType": "page",
+      "response": "complete",
+      "compute": "static",
+      "htmlSize": 10104,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -80,6 +92,9 @@
         "content-type": "application/manifest+json",
         "x-next-cache-tags": "_N_T_/layout,_N_T_/manifest.webmanifest/layout,_N_T_/manifest.webmanifest/route,_N_T_/manifest.webmanifest"
       },
+      "routeType": "route",
+      "response": "complete",
+      "compute": "static",
       "experimentalBypassFor": [
         {
           "type": "header",

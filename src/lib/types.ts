@@ -70,6 +70,8 @@ export interface EditorState {
   area?: LifeArea;
   areaId?: string | null;
   deleteSeries?: boolean;
+  isJournal?: boolean;
+  journalDate?: string;
 }
 
 /** Save responses keep the primary item shape for compatibility and include

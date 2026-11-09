@@ -97,6 +97,9 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
   const label = RESOURCE_LABELS[editor.kind];
   const Icon = editor.kind === "target" ? Target : editor.kind === "plan" ? CalendarDays : editor.kind === "chore" ? ListChecks : editor.kind === "file" ? FolderOpen : editor.kind === "note" ? StickyNote : editor.kind === "habit" ? Zap : Sprout;
 
+  const isJournal = !!(editor.isJournal || (editor.kind === "note" && (title?.startsWith("Journal - ") || editor.item?.title?.startsWith("Journal - ") || initialData.isJournal)));
+  const journalDateStr = editor.journalDate || editor.item?.data?.date || (title?.startsWith("Journal - ") ? title.replace("Journal - ", "") : date);
+
   function readFile(file?: File) {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { setError(language === "tr" ? "Lütfen 10 MB'a kadar bir dosya seçin." : "Choose a file up to 10 MB."); return; }
@@ -124,7 +127,8 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
     event.preventDefault();
     if (busyRef.current || reading) return;
     setError("");
-    if (!title.trim()) { setError(`Give your ${label} a name first.`); return; }
+    const inputTitle = isJournal ? `Journal - ${journalDateStr}` : title.trim();
+    if (!isJournal && !inputTitle) { setError(`Give your ${label} a name first.`); return; }
     if (supportsRepeat(editor.kind) && repeat !== "none" && (repeatCount.trim() === "" || !Number.isInteger(Number(repeatCount)) || Number(repeatCount) < 0 || Number(repeatCount) > MAX_REPEATS)) {
       setError(`Number of repeats must be a whole number from 0 to ${MAX_REPEATS}.`); return;
     }
@@ -156,16 +160,21 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
         if (supportsRepeat(editor.kind) && !addToCalendar) { data.repeat = repeat; data.repeatCount = repeat === "none" ? 0 : Number(repeatCount); }
         if (editor.kind === "habit") { data.unit = unit; data.history = initialData.history || []; }
         if (editor.kind === "note") data.pinned = pinned;
+        if (isJournal) {
+          data.date = journalDateStr;
+          data.isJournal = true;
+          data.pinned = true;
+        }
         if (remindPhone) {
           data.remindPhone = true;
           data.reminderTime = reminderTime;
-          scheduleTaskReminder(title.trim(), planDate || date, time, reminderTime);
+          scheduleTaskReminder(inputTitle, planDate || date, time, reminderTime);
         }
         if (editor.kind === "file") {
           Object.assign(data, fileData, { description, amount: Math.round((Number(amount) || 0) * 100) });
           if (!fileData.url) delete data.url;
         }
-        input = { title: title.trim(), areaId: savedAreas.some((area) => area.id === areaId) ? areaId : null, data };
+        input = { title: inputTitle, areaId: isJournal ? null : (savedAreas.some((area) => area.id === areaId) ? areaId : null), data };
       }
 
       if (editor.kind === "target" && fileData.content && savedAreas.some((a) => a.id === areaId)) {
@@ -231,23 +240,25 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
 
   return (
     <Modal
-      title={`${editing ? "Edit" : "Add"} ${label === "life area" ? "a life area" : `${editing ? "your" : "a"} ${label}`}`}
-      eyebrow={`ezlife26 · ${editing ? "A LITTLE REFRESH" : "MAKE ROOM FOR WHAT MATTERS"}`}
+      title={isJournal ? `📖 Journal · ${formatDate(journalDateStr, { weekday: "long", month: "long", day: "numeric" }, localeFor(language))}` : `${editing ? "Edit" : "Add"} ${label === "life area" ? "a life area" : `${editing ? "your" : "a"} ${label}`}`}
+      eyebrow={isJournal ? "ezlife26 · PERSONAL NOTEBOOK" : `ezlife26 · ${editing ? "A LITTLE REFRESH" : "MAKE ROOM FOR WHAT MATTERS"}`}
       onClose={onClose}
       disableClose={busy}
-      className={`editor-modal kind-${editor.kind} ${editor.kind === "note" ? "note-editor-modal" : ""}`}
-      wide={editor.kind === "note"}
+      className={`editor-modal kind-${editor.kind} ${editor.kind === "note" || isJournal ? "note-editor-modal" : ""}`}
+      wide={editor.kind === "note" || isJournal}
     >
       <form id={formId} onSubmit={submit} className="editor-form">
         <div className="editor-fields">
-          <div className="editor-context">
-            <span><Icon size={20}/></span>
-            <div>
-              <strong>{editing ? "Make it work for your life" : `Make room for a ${label}`}</strong>
-              <small>{isArea ? "Your own corner of a balanced life." : "Your details stay together in your planner."}</small>
+          {!isJournal && (
+            <div className="editor-context">
+              <span><Icon size={20}/></span>
+              <div>
+                <strong>{editing ? "Make it work for your life" : `Make room for a ${label}`}</strong>
+                <small>{isArea ? "Your own corner of a balanced life." : "Your details stay together in your planner."}</small>
+              </div>
+              {!isArea && <AreaTag area={savedAreas.find((area) => area.id === areaId)} small/>}
             </div>
-            {!isArea && <AreaTag area={savedAreas.find((area) => area.id === areaId)} small/>}
-          </div>
+          )}
 
           {isArea && (
             <div className="editor-area-preview" style={{ background: previewTheme.gradient, color: previewTheme.ink }}>
@@ -260,11 +271,49 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
           )}
 
           <fieldset disabled={busy} style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
-            {/* Title / Name */}
-            <label className="form-field">
-              <span>{isArea ? "Life area name" : editor.kind === "note" ? "Give your thought a title" : editor.kind === "file" ? "File name" : editor.kind === "habit" ? "Your daily habit" : editor.kind === "chore" ? "Task" : editor.kind === "plan" ? "What are you making time for?" : "Your meaningful target"}</span>
-              <input required maxLength={isArea ? 80 : 200} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={isArea ? "e.g. Creativity, Career, Adventure" : editor.kind === "habit" ? "e.g. Read a few pages" : editor.kind === "note" ? "A thought worth keeping…" : editor.kind === "file" ? "A name to find it by" : editor.kind === "chore" ? "e.g. Pick up groceries" : editor.kind === "plan" ? "A moment that matters…" : "Something worth working towards…"}/>
-            </label>
+            {isJournal ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%", padding: "4px 0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #16132c", paddingBottom: "10px", marginBottom: "8px" }}>
+                  <span style={{ fontSize: "14px", fontWeight: "700", color: "#16132c", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ fontSize: "18px" }}>📝</span> {formatDate(journalDateStr, { weekday: "long", month: "long", day: "numeric", year: "numeric" }, localeFor(language))}
+                  </span>
+                  <span style={{ fontSize: "12px", color: "#8b5cf6", fontWeight: "600", backgroundColor: "#f3e8ff", padding: "3px 12px", borderRadius: "12px" }}>
+                    {language === "tr" ? "Kişisel Günlük" : "Personal Journal"}
+                  </span>
+                </div>
+                <textarea
+                  autoFocus
+                  rows={14}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder={language === "tr" ? "Bugününüz hakkındaki kişisel notlarınızı ve düşüncelerinizi buraya yazın..." : "Write your personal thoughts, notes, and reflections for today here..."}
+                  style={{
+                    backgroundColor: "#fdfbf7",
+                    backgroundImage: "repeating-linear-gradient(transparent, transparent 31px, #cbd5e1 31px, #cbd5e1 32px)",
+                    lineHeight: "32px",
+                    fontSize: "15px",
+                    fontFamily: "'Manrope', 'DM Sans', sans-serif",
+                    color: "#1e293b",
+                    padding: "8px 18px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "12px",
+                    boxShadow: "inset 0 2px 6px rgba(0,0,0,0.03)",
+                    width: "100%",
+                    minHeight: "380px",
+                    resize: "vertical",
+                    outline: "none"
+                  }}
+                />
+              </div>
+            ) : (
+              <>
+                {/* Title / Name */}
+                <label className="form-field">
+                  <span>{isArea ? "Life area name" : editor.kind === "note" ? "Give your thought a title" : editor.kind === "file" ? "File name" : editor.kind === "habit" ? "Your daily habit" : editor.kind === "chore" ? "Task" : editor.kind === "plan" ? "What are you making time for?" : "Your meaningful target"}</span>
+                  <input required maxLength={isArea ? 80 : 200} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={isArea ? "e.g. Creativity, Career, Adventure" : editor.kind === "habit" ? "e.g. Read a few pages" : editor.kind === "note" ? "A thought worth keeping…" : editor.kind === "file" ? "A name to find it by" : editor.kind === "chore" ? "e.g. Pick up groceries" : editor.kind === "plan" ? "A moment that matters…" : "Something worth working towards…"}/>
+                </label>
+              </>
+            )}
 
             {/* Life Area customization */}
             {isArea && (

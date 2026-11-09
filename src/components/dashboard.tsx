@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, CalendarDays, ChevronDown, FolderOpen, Image as ImageIcon, ListChecks, Pencil, Plus, Trash2, Zap } from "lucide-react";
+import { BarChart3, BookOpen, CalendarDays, ChevronDown, FolderOpen, Image as ImageIcon, ListChecks, Pencil, Plus, Trash2, Zap } from "lucide-react";
 import { localeFor, translate } from "@/lib/i18n";
 import { addDays, dateISO, formatDate, getWeeklyAreaReport, humanSize, parseDate, progressForArea } from "@/lib/utils";
 import ItemMenu from "./item-menu";
@@ -195,7 +195,7 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
       </section>
 
       <div className="snap-stack">
-        <Accordion icon={<CalendarDays size={18}/>} iconClass="calendar" title={t("dailyPlan")} subtitle={t("noPlanToday")} open={open.plan} onToggle={() => toggle("plan")} addLabel={language === "tr" ? "Plan Ekle" : "Add Plan"} onAdd={() => onCreate("plan")}>
+        <Accordion icon={<CalendarDays size={20} color="#ffffff"/>} iconClass="calendar" iconBg="linear-gradient(135deg, #8b5cf6, #6366f1)" title={t("dailyPlan")} subtitle={language === "tr" ? "Gününüz ve takviminiz" : "Your daily, weekly & monthly schedule"} open={open.plan} onToggle={() => toggle("plan")} addLabel={language === "tr" ? "Plan Ekle" : "Add Plan"} onAdd={() => onCreate("plan")}>
           <div style={{ display: "flex", gap: "6px", marginBottom: planView ? "16px" : "4px", borderBottom: planView ? "1px solid rgba(0,0,0,0.05)" : "none", paddingBottom: "10px" }}>
             {["daily", "weekly", "monthly"].map((mode) => (
               <button
@@ -438,7 +438,7 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
           )}
         </Accordion>
 
-        <Accordion icon={<ListChecks size={18}/>} iconClass="tasks" title={t("tasks")} subtitle={t("tasksHint")} badge={`${doneChores}/${chores.length}`} open={open.chores} onToggle={() => toggle("chores")} addLabel={t("addTask")} onAdd={() => { setOpen((current: any) => ({ ...current, chores: true })); onCreate("chore"); }}>
+        <Accordion icon={<ListChecks size={20} color="#ffffff"/>} iconClass="tasks" iconBg="linear-gradient(135deg, #10b981, #059669)" title={t("tasks")} subtitle={t("tasksHint")} badge={`${doneChores}/${chores.length}`} open={open.chores} onToggle={() => toggle("chores")} addLabel={t("addTask")} onAdd={() => { setOpen((current: any) => ({ ...current, chores: true })); onCreate("chore"); }}>
           {chores.length ? chores.map((item: any) => (
             <Row key={item.id} item={item} pending={pending} meta={areaFor(item)?.name || t("tasks")} onEdit={onEdit} onToggle={onToggle} onDelete={onDelete} language={language}/>
           )) : <Empty text={t("noTasks")} action={t("addTask")} onAction={() => onCreate("chore")}/>}
@@ -447,38 +447,55 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
         {/* Personal Journal Section under Tasks */}
         {(() => {
           const selectedDateStr = date || dateISO();
-          const existingJournal = items.find((item: any) => item.kind === "note" && (item.title?.includes(selectedDateStr) || item.data.date === selectedDateStr));
+          const existingJournal = items.find((item: any) => item.kind === "note" && (item.title?.includes(selectedDateStr) || item.data.date === selectedDateStr || item.data.isJournal));
+
+          const handleOpenJournal = () => {
+            if (existingJournal) {
+              onEdit({ ...existingJournal, isJournal: true, journalDate: selectedDateStr } as any);
+            } else {
+              onEdit({
+                kind: "note",
+                isJournal: true,
+                journalDate: selectedDateStr,
+                item: {
+                  id: "temp-" + Date.now(),
+                  kind: "note",
+                  title: `Journal - ${selectedDateStr}`,
+                  areaId: null,
+                  data: { date: selectedDateStr, description: "", pinned: true, isJournal: true },
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString()
+                }
+              } as any);
+            }
+          };
 
           return (
-            <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "16px 18px", border: "1px solid #e2e8f0", boxShadow: "0 4px 15px rgba(0,0,0,0.03)", marginTop: "12px", marginBottom: "16px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "22px" }}>📖</span>
+            <div style={{ backgroundColor: "#ffffff", borderRadius: "20px", padding: "18px 20px", border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(32, 28, 64, 0.05)", marginTop: "14px", marginBottom: "14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ width: "42px", height: "42px", borderRadius: "14px", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #ec4899, #f43f5e)", color: "#ffffff", flexShrink: 0, boxShadow: "0 4px 12px rgba(236, 72, 153, 0.25)" }}>
+                    <BookOpen size={20} color="#ffffff"/>
+                  </span>
                   <div>
-                    <strong style={{ fontSize: "15px", fontWeight: "700", color: "#16132c", display: "block" }}>
+                    <strong style={{ fontSize: "16px", fontWeight: "750", color: "#16132c", display: "block" }}>
                       {language === "tr" ? "Kişisel Günlük" : "Personal Journal"}
                     </strong>
-                    <small style={{ color: "#64748b", fontSize: "12px" }}>
+                    <small style={{ color: "#8b93a7", fontSize: "13px" }}>
                       {formatDate(selectedDateStr, { weekday: "long", month: "long", day: "numeric" }, localeFor(language))}
                     </small>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (existingJournal) {
-                      onEdit(existingJournal);
-                    } else {
-                      onCreate("note");
-                    }
-                  }}
+                  onClick={handleOpenJournal}
                   style={{
-                    padding: "6px 14px",
+                    padding: "7px 16px",
                     backgroundColor: "#16132c",
                     color: "#ffffff",
                     borderRadius: "20px",
                     fontSize: "12px",
-                    fontWeight: "600",
+                    fontWeight: "700",
                     border: "none",
                     cursor: "pointer",
                     display: "flex",
@@ -492,17 +509,11 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
               </div>
 
               <div
-                onClick={() => {
-                  if (existingJournal) {
-                    onEdit(existingJournal);
-                  } else {
-                    onCreate("note");
-                  }
-                }}
+                onClick={handleOpenJournal}
                 style={{
                   padding: "14px",
                   backgroundColor: "#f8fafc",
-                  borderRadius: "10px",
+                  borderRadius: "14px",
                   border: existingJournal ? "1px solid #e2e8f0" : "1px dashed #cbd5e1",
                   cursor: "pointer"
                 }}
@@ -545,11 +556,11 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
   );
 }
 
-function Accordion({ icon, iconClass, title, subtitle, badge, open, onToggle, addLabel, onAdd, children }: any) {
+function Accordion({ icon, iconClass, iconBg, title, subtitle, badge, open, onToggle, addLabel, onAdd, children }: any) {
   return (
     <div className={`snap-accordion ${open ? "is-open" : ""}`}>
       <button className="snap-accordion-head" onClick={onToggle}>
-        <span className={`snap-accordion-icon ${iconClass}`}>{icon}</span>
+        <span className={`snap-accordion-icon ${iconClass}`} style={iconBg ? { background: iconBg, color: "#ffffff", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" } : undefined}>{icon}</span>
         <div className="snap-accordion-copy">
           <strong>{title}</strong>
           <small>{subtitle}</small>
