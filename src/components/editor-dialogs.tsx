@@ -468,7 +468,7 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
               </>
             )}
 
-            {(editor.kind === "plan" || editor.kind === "chore" || editor.kind === "target") && (
+            {(editor.kind === "plan" || editor.kind === "target") && (
               <div style={{ padding: "12px", backgroundColor: "rgba(139, 92, 246, 0.05)", borderRadius: "12px", border: "1px solid rgba(139, 92, 246, 0.15)", marginTop: "12px" }}>
                 <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontWeight: "600", color: "#16132c", fontSize: "13px" }}>
                   <input

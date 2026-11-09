@@ -53,9 +53,33 @@ export function progressForArea(area: LifeArea, items: PlannerItem[]): number {
   return Math.round((completedCount / targets.length) * 100);
 }
 
+export function getTargetReport(target: PlannerItem, language = "en") {
+  const deadlineDate = target.data.dueDate || target.data.date;
+  if (!deadlineDate) {
+    return { hasDeadline: false, status: "none", message: null };
+  }
+
+  const completed = target.data.progress === 100 || !!target.data.completed;
+  if (completed) {
+    return {
+      hasDeadline: true,
+      deadlineDate,
+      status: "great",
+      message: language === "tr" ? "Harika gidiyorsun, tebrikler!" : "you are doing great, congrats"
+    };
+  }
+
+  return {
+    hasDeadline: true,
+    deadlineDate,
+    status: "encouraging",
+    message: language === "tr" ? "İyi çalışmaya devam et, başaracaksın" : "keep up the good work, you will do it"
+  };
+}
+
 export function getWeeklyAreaReport(area: LifeArea, items: PlannerItem[], language = "en") {
   const areaItems = items.filter((item) => item.areaId === area.id);
-  const areaTasks = areaItems.filter((item) => item.kind === "chore" || item.kind === "target" || item.kind === "plan");
+  const deadlineTargets = areaItems.filter((item) => item.kind === "target" && (item.data.dueDate || item.data.date));
 
   const todayStr = dateISO();
   const todayObj = parseDate(todayStr);
@@ -64,11 +88,11 @@ export function getWeeklyAreaReport(area: LifeArea, items: PlannerItem[], langua
   const sundayStr = addDays(todayStr, daysUntilSunday);
   const mondayStr = addDays(sundayStr, -6);
 
-  const total = areaTasks.length;
-  const completed = areaTasks.filter((item) => item.data.completed || item.data.progress === 100).length;
+  const total = deadlineTargets.length;
+  const completed = deadlineTargets.filter((item) => item.data.completed || item.data.progress === 100).length;
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-  let message = "";
+  let message: string | null = null;
   let status: "great" | "encouraging" | "empty" = "empty";
 
   if (total > 0) {
@@ -77,10 +101,8 @@ export function getWeeklyAreaReport(area: LifeArea, items: PlannerItem[], langua
       message = language === "tr" ? "Harika gidiyorsun, tebrikler!" : "you are doing great, congrats";
     } else {
       status = "encouraging";
-      message = language === "tr" ? "Hedeflerini kaçırdın ama pes etme, başaracaksın" : "you missed your targets but don’t give up, you will do it";
+      message = language === "tr" ? "İyi çalışmaya devam et, başaracaksın" : "keep up the good work, you will do it";
     }
-  } else {
-    message = language === "tr" ? "Bu alan için yeni bir niyet ekleyin." : "Add a task or target for this area.";
   }
 
   return {
@@ -89,6 +111,7 @@ export function getWeeklyAreaReport(area: LifeArea, items: PlannerItem[], langua
     percentage,
     status,
     message,
+    hasDeadlineTargets: total > 0,
     sundayStr,
     mondayStr
   };

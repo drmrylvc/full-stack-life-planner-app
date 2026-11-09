@@ -195,7 +195,7 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
       </section>
 
       <div className="snap-stack">
-        <Accordion icon={<CalendarDays size={18}/>} iconClass="calendar" title={t("dailyPlan")} subtitle={nextPlanSubtitle} open={open.plan} onToggle={() => toggle("plan")} addLabel={language === "tr" ? "Plan Ekle" : "Add Plan"} onAdd={() => onCreate("plan")}>
+        <Accordion icon={<CalendarDays size={18}/>} iconClass="calendar" title={t("dailyPlan")} subtitle={t("noPlanToday")} open={open.plan} onToggle={() => toggle("plan")} addLabel={language === "tr" ? "Plan Ekle" : "Add Plan"} onAdd={() => onCreate("plan")}>
           <div style={{ display: "flex", gap: "6px", marginBottom: planView ? "16px" : "4px", borderBottom: planView ? "1px solid rgba(0,0,0,0.05)" : "none", paddingBottom: "10px" }}>
             {["daily", "weekly", "monthly"].map((mode) => (
               <button
@@ -444,18 +444,86 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
           )) : <Empty text={t("noTasks")} action={t("addTask")} onAction={() => onCreate("chore")}/>}
         </Accordion>
 
-        <Accordion icon="⚡" iconClass="bolt" title={t("quickLog")} subtitle={t("quickLogHint")} badge={`${doneHabits}/${habits.length}`} open={open.habits} onToggle={() => toggle("habits")} onAdd={() => onCreate("habit")}>
-          {habits.map((habit: any) => {
-            const done = !!habit.data.history?.includes(dateISO());
-            return (
-              <div className={`snap-row ${done ? "is-done" : ""}`} key={habit.id}>
-                <span className="snap-row-emoji">{areaFor(habit)?.emoji || "✨"}</span>
-                <button className="snap-row-copy" onClick={() => onEdit(habit)}><strong>{habit.title}</strong><small>{habit.data.unit}</small></button>
-                <CheckButton checked={done} disabled={pending.has(habit.id)} label={`${done ? "Undo" : "Log"} ${habit.title}`} onClick={() => onToggle(habit)}/>
+        {/* Personal Journal Section under Tasks */}
+        {(() => {
+          const selectedDateStr = date || dateISO();
+          const existingJournal = items.find((item: any) => item.kind === "note" && (item.title?.includes(selectedDateStr) || item.data.date === selectedDateStr));
+
+          return (
+            <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "16px 18px", border: "1px solid #e2e8f0", boxShadow: "0 4px 15px rgba(0,0,0,0.03)", marginTop: "12px", marginBottom: "16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "22px" }}>📖</span>
+                  <div>
+                    <strong style={{ fontSize: "15px", fontWeight: "700", color: "#16132c", display: "block" }}>
+                      {language === "tr" ? "Kişisel Günlük" : "Personal Journal"}
+                    </strong>
+                    <small style={{ color: "#64748b", fontSize: "12px" }}>
+                      {formatDate(selectedDateStr, { weekday: "long", month: "long", day: "numeric" }, localeFor(language))}
+                    </small>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (existingJournal) {
+                      onEdit(existingJournal);
+                    } else {
+                      onCreate("note");
+                    }
+                  }}
+                  style={{
+                    padding: "6px 14px",
+                    backgroundColor: "#16132c",
+                    color: "#ffffff",
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  }}
+                >
+                  <Pencil size={13} />
+                  {existingJournal ? (language === "tr" ? "Günlüğü Aç" : "Open Journal") : (language === "tr" ? "Not / Günlük Yaz" : "Write Journal")}
+                </button>
               </div>
-            );
-          })}
-        </Accordion>
+
+              <div
+                onClick={() => {
+                  if (existingJournal) {
+                    onEdit(existingJournal);
+                  } else {
+                    onCreate("note");
+                  }
+                }}
+                style={{
+                  padding: "14px",
+                  backgroundColor: "#f8fafc",
+                  borderRadius: "10px",
+                  border: existingJournal ? "1px solid #e2e8f0" : "1px dashed #cbd5e1",
+                  cursor: "pointer"
+                }}
+              >
+                {existingJournal ? (
+                  <p style={{ fontSize: "13px", color: "#334155", margin: 0, lineHeight: 1.6, fontStyle: "italic" }}>
+                    "{existingJournal.data.description?.slice(0, 180) || (language === "tr" ? "Boş günlük sayfası..." : "Blank journal page...")}"
+                  </p>
+                ) : (
+                  <div style={{ textAlign: "center", padding: "6px 0" }}>
+                    <p style={{ fontSize: "13px", color: "#64748b", margin: 0, fontWeight: "500" }}>
+                      {language === "tr"
+                        ? `Dokunarak ${formatDate(selectedDateStr)} tarihi için boş bir sayfa açın ve kişisel günlüğünüzü yazın...`
+                        : `Tap to open a blank page and write your personal journal for ${formatDate(selectedDateStr)}...`}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         <Accordion icon={<FolderOpen size={18}/>} iconClass="files" title={t("recentFiles")} subtitle={t("filesHint")} badge={t("filesBadge", { n: files.length })} open={open.files} onToggle={() => toggle("files")} onAdd={() => onCreate("file")}>
           {files.slice(0, 4).map((file: any) => <button className="snap-file" key={file.id} onClick={() => onFile(file)}><FileGlyph item={file}/><span><strong>{file.title}</strong><small>{humanSize(file.data.fileSize)}</small></span></button>)}

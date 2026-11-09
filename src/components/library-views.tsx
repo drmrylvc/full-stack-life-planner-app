@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ArrowDownToLine, ArrowLeft, ArrowUpRight, CalendarDays, Check, FileText, FolderOpen, Image as ImageIcon, LayoutGrid, List, Pencil, Pin, Plus, Sprout, StickyNote, Target, Trash2, Zap } from "lucide-react";
 import { RESOURCE_LABELS, type ItemKind } from "@/lib/types";
-import { dateISO, getWeeklyAreaReport, humanSize, itemSubtitle, progressForArea } from "@/lib/utils";
+import { dateISO, getTargetReport, getWeeklyAreaReport, humanSize, itemSubtitle, progressForArea } from "@/lib/utils";
 import { translate } from "@/lib/i18n";
 import type { ResourceProps } from "./resource-types";
 import { AreaTag, CheckButton, colorStyle, EmptyState, FileGlyph, ProgressRing } from "./ui";
@@ -184,16 +184,38 @@ export function AreasView({ workspace, pending, areaId, onAreaFilter, onCreate, 
                     <div className="area-resource-list panel">
                       {shown.map((item) => {
                         const complete = item.kind === "habit" ? item.data.history?.includes(dateISO()) : item.data.completed;
-                        return <article key={item.id} className="area-resource-row">
-                          <span className="area-resource-icon">{item.kind === "file" ? <FileGlyph item={item}/> : item.kind === "target" ? <Target size={20}/> : item.kind === "habit" ? <Zap size={20}/> : item.kind === "plan" ? <CalendarDays size={20}/> : <StickyNote size={20}/>}</span>
-                          <button className="area-resource-copy" onClick={() => item.kind === "file" ? onFile(item) : onEdit(item)}>
-                            <strong>{item.title}</strong>
-                            <small>{itemSubtitle(item)}</small>
-                            <RepeatBadge data={item.data}/>
-                          </button>
-                          {item.kind === "target" && <div className="area-target-progress"><span>{item.data.progress || 0}%</span><div className="progress-track"><span style={{ width: `${item.data.progress || 0}%` }}/></div></div>}
-                          {["target", "habit", "plan", "chore"].includes(item.kind) && <CheckButton checked={complete} disabled={pending.has(item.id)} label="Complete" onClick={() => onToggle(item)}/>}
-                          <ItemMenu onEdit={() => onEdit(item)} onDelete={() => onDelete({ kind: item.kind, item })}/>
+                        const targetReport = item.kind === "target" ? getTargetReport(item, language) : null;
+                        return <article key={item.id} className="area-resource-row" style={{ flexDirection: "column", alignItems: "stretch" }}>
+                          <div style={{ display: "flex", alignItems: "center", width: "100%", gap: "10px" }}>
+                            <span className="area-resource-icon">{item.kind === "file" ? <FileGlyph item={item}/> : item.kind === "target" ? <Target size={20}/> : item.kind === "habit" ? <Zap size={20}/> : item.kind === "plan" ? <CalendarDays size={20}/> : <StickyNote size={20}/>}</span>
+                            <button className="area-resource-copy" onClick={() => item.kind === "file" ? onFile(item) : onEdit(item)}>
+                              <strong>{item.title}</strong>
+                              <small>{itemSubtitle(item)}</small>
+                              <RepeatBadge data={item.data}/>
+                            </button>
+                            {item.kind === "target" && <div className="area-target-progress"><span>{item.data.progress || 0}%</span><div className="progress-track"><span style={{ width: `${item.data.progress || 0}%` }}/></div></div>}
+                            {["target", "habit", "plan", "chore"].includes(item.kind) && <CheckButton checked={complete} disabled={pending.has(item.id)} label="Complete" onClick={() => onToggle(item)}/>}
+                            <ItemMenu onEdit={() => onEdit(item)} onDelete={() => onDelete({ kind: item.kind, item })}/>
+                          </div>
+                          {targetReport && targetReport.hasDeadline && targetReport.message && (
+                            <div style={{
+                              fontSize: "12px",
+                              fontWeight: "600",
+                              color: targetReport.status === "great" ? "#065f46" : "#9a3412",
+                              backgroundColor: targetReport.status === "great" ? "#ecfdf5" : "#fff7ed",
+                              border: `1px solid ${targetReport.status === "great" ? "#a7f3d0" : "#fed7aa"}`,
+                              padding: "6px 10px",
+                              borderRadius: "8px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px",
+                              marginTop: "8px"
+                            }}>
+                              <span>{targetReport.status === "great" ? "🎉" : "💪"}</span>
+                              <span>{targetReport.message}</span>
+                              <small style={{ color: "#64748b", marginLeft: "auto", fontWeight: "500" }}>Deadline: {targetReport.deadlineDate}</small>
+                            </div>
+                          )}
                         </article>;
                       })}
                     </div>

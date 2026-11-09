@@ -137,41 +137,6 @@ export function TaskEditor({ editor, workspace, date, language = "en", onClose, 
             <label className="form-field"><span>{copy.area}<small>{copy.optional}</small></span><select aria-label={copy.area} value={areaId} onChange={(event) => setAreaId(event.target.value)}><option value="">{copy.personal}</option>{areas.map((area) => <option key={area.id} value={area.id}>{area.emoji} {area.name}</option>)}</select></label>
             <RepeatControls repeat={repeat} count={count} start={day || selectedDay} language={language} editingSeries={!!initial.seriesId} onRepeat={setRepeat} onCount={setCount}/>
 
-            <div style={{ padding: "12px", backgroundColor: "rgba(139, 92, 246, 0.05)", borderRadius: "10px", border: "1px solid rgba(139, 92, 246, 0.15)", marginTop: "10px" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontWeight: "600", color: "#16132c", fontSize: "13px" }}>
-                <input
-                  type="checkbox"
-                  checked={remindPhone}
-                  onChange={async (e) => {
-                    const checked = e.target.checked;
-                    setRemindPhone(checked);
-                    if (checked) {
-                      await requestNotificationPermission();
-                    }
-                  }}
-                  style={{ width: "18px", height: "18px", accentColor: "#8b5cf6" }}
-                />
-                <span>🔔 {language === "tr" ? "Telefondan Bildirim / Hatırlatıcı Al" : "Get Phone Reminder"}</span>
-              </label>
-
-              {remindPhone && (
-                <div style={{ marginTop: "10px" }}>
-                  <label className="form-field">
-                    <span>{language === "tr" ? "Hatırlatma Zamanı" : "Reminder Timing"}</span>
-                    <select value={reminderTime} onChange={(e) => setReminderTime(e.target.value)}>
-                      <option value="at_time">{language === "tr" ? "Görev zamanında" : "At time of task"}</option>
-                      <option value="5_min_before">{language === "tr" ? "5 dakika önce" : "5 minutes before"}</option>
-                      <option value="10_min_before">{language === "tr" ? "10 dakika önce" : "10 minutes before"}</option>
-                      <option value="15_min_before">{language === "tr" ? "15 dakika önce" : "15 minutes before"}</option>
-                      <option value="30_min_before">{language === "tr" ? "30 dakika önce" : "30 minutes before"}</option>
-                      <option value="1_hour_before">{language === "tr" ? "1 saat önce" : "1 hour before"}</option>
-                      <option value="1_day_before">{language === "tr" ? "1 gün önce" : "1 day before"}</option>
-                    </select>
-                  </label>
-                </div>
-              )}
-            </div>
-
             <label className="form-field"><span>{copy.notes}<small>{copy.optional}</small></span><textarea aria-label={copy.notes} rows={2} maxLength={12000} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder={copy.notesHint}/></label>
             <label className="form-field">
               <span>{copy.addFile} <small>{copy.optional}</small></span>
