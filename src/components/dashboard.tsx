@@ -195,6 +195,14 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
       </section>
 
       <div className="snap-stack">
+        <div className="snap-section-head" style={{ marginTop: "12px", marginBottom: "4px" }}>
+          <div>
+            <h2>{language === "tr" ? "TAKVİM" : "CALENDAR"}</h2>
+            <p>{language === "tr" ? "Gününüz ve takviminiz" : "Your daily, weekly & monthly schedule"}</p>
+          </div>
+          <button onClick={() => onCreate("plan")}>+ {language === "tr" ? "Plan Ekle" : "Add Plan"}</button>
+        </div>
+
         <Accordion icon={<CalendarDays size={20} color="#ffffff"/>} iconClass="calendar" iconBg="linear-gradient(135deg, #8b5cf6, #6366f1)" title={t("dailyPlan")} subtitle={language === "tr" ? "Gününüz ve takviminiz" : "Your daily, weekly & monthly schedule"} open={open.plan} onToggle={() => toggle("plan")} addLabel={language === "tr" ? "Plan Ekle" : "Add Plan"} onAdd={() => onCreate("plan")}>
           <div style={{ display: "flex", gap: "6px", marginBottom: planView ? "16px" : "4px", borderBottom: planView ? "1px solid rgba(0,0,0,0.05)" : "none", paddingBottom: "10px" }}>
             {["daily", "weekly", "monthly"].map((mode) => (
@@ -438,6 +446,14 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
           )}
         </Accordion>
 
+        <div className="snap-section-head" style={{ marginTop: "16px", marginBottom: "4px" }}>
+          <div>
+            <h2>{language === "tr" ? "GÖREVLER" : "TASKS"}</h2>
+            <p>{t("tasksHint")}</p>
+          </div>
+          <button onClick={() => { setOpen((current: any) => ({ ...current, chores: true })); onCreate("chore"); }}>+ {t("addTask")}</button>
+        </div>
+
         <Accordion icon={<ListChecks size={20} color="#ffffff"/>} iconClass="tasks" iconBg="linear-gradient(135deg, #10b981, #059669)" title={t("tasks")} subtitle={t("tasksHint")} badge={`${doneChores}/${chores.length}`} open={open.chores} onToggle={() => toggle("chores")} addLabel={t("addTask")} onAdd={() => { setOpen((current: any) => ({ ...current, chores: true })); onCreate("chore"); }}>
           {chores.length ? chores.map((item: any) => (
             <Row key={item.id} item={item} pending={pending} meta={areaFor(item)?.name || t("tasks")} onEdit={onEdit} onToggle={onToggle} onDelete={onDelete} language={language}/>
@@ -471,66 +487,78 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
           };
 
           return (
-            <div style={{ backgroundColor: "#ffffff", borderRadius: "20px", padding: "18px 20px", border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(32, 28, 64, 0.05)", marginTop: "14px", marginBottom: "14px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <span style={{ width: "42px", height: "42px", borderRadius: "14px", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #ec4899, #f43f5e)", color: "#ffffff", flexShrink: 0, boxShadow: "0 4px 12px rgba(236, 72, 153, 0.25)" }}>
-                    <BookOpen size={20} color="#ffffff"/>
-                  </span>
-                  <div>
-                    <strong style={{ fontSize: "16px", fontWeight: "750", color: "#16132c", display: "block" }}>
-                      {language === "tr" ? "Kişisel Günlük" : "Personal Journal"}
-                    </strong>
-                    <small style={{ color: "#8b93a7", fontSize: "13px" }}>
-                      {formatDate(selectedDateStr, { weekday: "long", month: "long", day: "numeric" }, localeFor(language))}
-                    </small>
-                  </div>
+            <div>
+              <div className="snap-section-head" style={{ marginTop: "16px", marginBottom: "4px" }}>
+                <div>
+                  <h2>{language === "tr" ? "KİŞİSEL GÜNLÜK" : "PERSONAL JOURNAL"}</h2>
+                  <p>{formatDate(selectedDateStr, { weekday: "long", month: "long", day: "numeric" }, localeFor(language))}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleOpenJournal}
-                  style={{
-                    padding: "7px 16px",
-                    backgroundColor: "#16132c",
-                    color: "#ffffff",
-                    borderRadius: "20px",
-                    fontSize: "12px",
-                    fontWeight: "700",
-                    border: "none",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px"
-                  }}
-                >
-                  <Pencil size={13} />
-                  {existingJournal ? (language === "tr" ? "Günlüğü Aç" : "Open Journal") : (language === "tr" ? "Not / Günlük Yaz" : "Write Journal")}
+                <button onClick={handleOpenJournal}>
+                  {existingJournal ? (language === "tr" ? "Günlüğü Aç" : "Open Journal") : (language === "tr" ? "Günlük Yaz" : "Write Journal")}
                 </button>
               </div>
 
-              <div
-                onClick={handleOpenJournal}
-                style={{
-                  padding: "14px",
-                  backgroundColor: "#f8fafc",
-                  borderRadius: "14px",
-                  border: existingJournal ? "1px solid #e2e8f0" : "1px dashed #cbd5e1",
-                  cursor: "pointer"
-                }}
-              >
-                {existingJournal ? (
-                  <p style={{ fontSize: "13px", color: "#334155", margin: 0, lineHeight: 1.6, fontStyle: "italic" }}>
-                    "{existingJournal.data.description?.slice(0, 180) || (language === "tr" ? "Boş günlük sayfası..." : "Blank journal page...")}"
-                  </p>
-                ) : (
-                  <div style={{ textAlign: "center", padding: "6px 0" }}>
-                    <p style={{ fontSize: "13px", color: "#64748b", margin: 0, fontWeight: "500" }}>
-                      {language === "tr"
-                        ? `Dokunarak ${formatDate(selectedDateStr)} tarihi için boş bir sayfa açın ve kişisel günlüğünüzü yazın...`
-                        : `Tap to open a blank page and write your personal journal for ${formatDate(selectedDateStr)}...`}
-                    </p>
+              <div style={{ backgroundColor: "#ffffff", borderRadius: "20px", padding: "18px 20px", border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(32, 28, 64, 0.05)", marginBottom: "14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <span style={{ width: "42px", height: "42px", borderRadius: "14px", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #ec4899, #f43f5e)", color: "#ffffff", flexShrink: 0, boxShadow: "0 4px 12px rgba(236, 72, 153, 0.25)" }}>
+                      <BookOpen size={20} color="#ffffff"/>
+                    </span>
+                    <div>
+                      <strong style={{ fontSize: "16px", fontWeight: "750", color: "#16132c", display: "block" }}>
+                        {language === "tr" ? "Kişisel Günlük Sayfası" : "Personal Journal Notebook"}
+                      </strong>
+                      <small style={{ color: "#8b93a7", fontSize: "13px" }}>
+                        {formatDate(selectedDateStr, { weekday: "long", month: "long", day: "numeric" }, localeFor(language))}
+                      </small>
+                    </div>
                   </div>
-                )}
+                  <button
+                    type="button"
+                    onClick={handleOpenJournal}
+                    style={{
+                      padding: "7px 16px",
+                      backgroundColor: "#16132c",
+                      color: "#ffffff",
+                      borderRadius: "20px",
+                      fontSize: "12px",
+                      fontWeight: "700",
+                      border: "none",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}
+                  >
+                    <Pencil size={13} />
+                    {existingJournal ? (language === "tr" ? "Günlüğü Aç" : "Open Journal") : (language === "tr" ? "Not / Günlük Yaz" : "Write Journal")}
+                  </button>
+                </div>
+
+                <div
+                  onClick={handleOpenJournal}
+                  style={{
+                    padding: "14px",
+                    backgroundColor: "#f8fafc",
+                    borderRadius: "14px",
+                    border: existingJournal ? "1px solid #e2e8f0" : "1px dashed #cbd5e1",
+                    cursor: "pointer"
+                  }}
+                >
+                  {existingJournal ? (
+                    <p style={{ fontSize: "13px", color: "#334155", margin: 0, lineHeight: 1.6, fontStyle: "italic" }}>
+                      "{existingJournal.data.description?.slice(0, 180) || (language === "tr" ? "Boş günlük sayfası..." : "Blank journal page...")}"
+                    </p>
+                  ) : (
+                    <div style={{ textAlign: "center", padding: "6px 0" }}>
+                      <p style={{ fontSize: "13px", color: "#64748b", margin: 0, fontWeight: "500" }}>
+                        {language === "tr"
+                          ? `Dokunarak ${formatDate(selectedDateStr)} tarihi için boş bir sayfa açın ve kişisel günlüğünüzü yazın...`
+                          : `Tap to open a blank page and write your personal journal for ${formatDate(selectedDateStr)}...`}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );

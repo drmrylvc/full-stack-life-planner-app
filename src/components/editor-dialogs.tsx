@@ -307,11 +307,268 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
               </div>
             ) : (
               <>
-                {/* Title / Name */}
-                <label className="form-field">
-                  <span>{isArea ? "Life area name" : editor.kind === "note" ? "Give your thought a title" : editor.kind === "file" ? "File name" : editor.kind === "habit" ? "Your daily habit" : editor.kind === "chore" ? "Task" : editor.kind === "plan" ? "What are you making time for?" : "Your meaningful target"}</span>
-                  <input required maxLength={isArea ? 80 : 200} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={isArea ? "e.g. Creativity, Career, Adventure" : editor.kind === "habit" ? "e.g. Read a few pages" : editor.kind === "note" ? "A thought worth keeping…" : editor.kind === "file" ? "A name to find it by" : editor.kind === "chore" ? "e.g. Pick up groceries" : editor.kind === "plan" ? "A moment that matters…" : "Something worth working towards…"}/>
-                </label>
+                {!isArea && (
+                  <label className="form-field">
+                    <span>{editor.kind === "note" ? "Give your thought a title" : editor.kind === "file" ? "File name" : editor.kind === "habit" ? "Your daily habit" : editor.kind === "chore" ? "Task" : editor.kind === "plan" ? "What are you making time for?" : "Your meaningful target"}</span>
+                    <input required maxLength={isArea ? 80 : 200} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={isArea ? "e.g. Creativity, Career, Adventure" : editor.kind === "habit" ? "e.g. Read a few pages" : editor.kind === "note" ? "A thought worth keeping…" : editor.kind === "file" ? "A name to find it by" : editor.kind === "chore" ? "e.g. Pick up groceries" : editor.kind === "plan" ? "A moment that matters…" : "Something worth working towards…"}/>
+                  </label>
+                )}
+
+                {/* Life Area customization */}
+                {isArea && (
+                  <>
+                    <div className="form-field">
+                      <span>Choose an emoji</span>
+                      <div className="emoji-picker" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {EMOJIS.map((e) => (
+                          <button key={e} type="button" className={emoji === e ? "selected" : ""} onClick={() => setEmoji(e)} style={{ fontSize: '20px', padding: '6px 10px', borderRadius: '8px', border: emoji === e ? '2px solid #8b5cf6' : '1px solid #e5dff0', background: emoji === e ? '#eee5ff' : '#f8f5fc', cursor: 'pointer' }}>
+                            {e}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <label className="form-field">
+                      <span>Description <small>Optional</small></span>
+                      <textarea rows={2} maxLength={500} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Give this part of life a little intention…"/>
+                    </label>
+
+                    <div className="form-field">
+                      <span>Theme color</span>
+                      <div className="color-picker" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px' }}>
+                        {(["lavender", "blue", "peach", "rose", "mint", "sand"] as AreaColor[]).map((c) => (
+                          <button key={c} type="button" className={color === c ? "selected" : ""} onClick={() => setColor(c)} style={{ background: AREA_COLORS[c].background, color: AREA_COLORS[c].text, border: color === c ? '2px solid #8b5cf6' : 'none', borderRadius: '10px', padding: '10px 4px', fontWeight: '600', cursor: 'pointer', textAlign: 'center', fontSize: '11px' }}>
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {!isArea && (
+                  <label className="form-field">
+                    <span>{editor.kind === "file" ? (language === "tr" ? "Klasör / Yaşam Alanı" : "Folder / Life Area") : "Life area"} <small>Optional</small></span>
+                    <select value={areaId} onChange={(event) => setAreaId(event.target.value)}>
+                      <option value="">Personal · No folder</option>
+                      {savedAreas.map((area) => (
+                        <option key={area.id} value={area.id}>{area.emoji} {area.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                {!isArea && (
+                  <label className="form-field">
+                    <span>{editor.kind === "note" ? "Your thought" : "Notes & details"} <small>Optional</small></span>
+                    <textarea rows={3} maxLength={12000} value={description} onChange={(event) => setDescription(event.target.value)} placeholder={editor.kind === "note" ? "A thought worth keeping…" : "Any details you want to remember…"}/>
+                  </label>
+                )}
+
+                {editor.kind === "file" && (
+                  <>
+                    <input type="file" className="visually-hidden" ref={fileInput} onChange={(event) => readFile(event.target.files?.[0])}/>
+                    <div className={`file-dropzone ${dragging ? "dragging" : ""} ${fileData.content || fileData.url ? "has-file" : ""}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); readFile(event.dataTransfer.files?.[0]); }}>
+                      {fileData.content || fileData.url ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%" }}>
+                          <span className="uploaded-file-icon">
+                            {fileData.mimeType?.startsWith("image/") ? (
+                              <img
+                                src={fileData.content || fileData.url}
+                                alt="Preview"
+                                style={{ width: "54px", height: "54px", objectFit: "cover", borderRadius: "8px", border: "1px solid rgba(0,0,0,0.1)" }}
+                              />
+                            ) : (
+                              <FileText size={28}/>
+                            )}
+                          </span>
+                          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "2px" }}>
+                            <strong style={{ fontSize: "14px" }}>{fileName}</strong>
+                            <small style={{ color: "#64748b" }}>
+                              {humanSize(fileData.fileSize)} · 📁 Folder: {savedAreas.find((a) => a.id === areaId)?.emoji || "📂"} {savedAreas.find((a) => a.id === areaId)?.name || "Personal"}
+                            </small>
+                          </div>
+                          <button type="button" className="text-button" onClick={() => fileInput.current?.click()}>
+                            Replace
+                          </button>
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => fileInput.current?.click()}>
+                          {reading ? <Spinner size={28}/> : <UploadCloud size={30}/>}
+                          <strong>{reading ? "Getting your file ready…" : "Drop a picture or document here"}</strong>
+                          <span>or <u>browse files</u> · Photos, PDFs, Docs up to 10 MB</span>
+                        </button>
+                      )}
+                    </div>
+                    <label className="form-field">
+                      <span>Amount / Cost <small>Optional</small></span>
+                      <input type="number" step="0.01" min="0" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00"/>
+                    </label>
+                  </>
+                )}
+
+                {editor.kind === "target" && (
+                  <>
+                    <label className="form-field">
+                      <span>A gentle deadline</span>
+                      <input type="date" aria-label="A gentle deadline" value={dueDate} onChange={(event) => setDueDate(event.target.value)}/>
+                      <small style={{ color: "#ef4444", fontSize: "12.5px", fontWeight: "600", display: "block", marginTop: "4px" }}>
+                        {language === "tr"
+                          ? "Haftalık rapor için isteğe bağlı. Bir hedef son tarih olmadan da kaydedilebilir."
+                          : "Optional for weekly report. A target can be saved without a deadline."}
+                      </small>
+                    </label>
+
+                    {!isArea && (
+                      <label className="form-field">
+                        <span>{tr("addFile")} <small>Optional</small></span>
+                        <input type="file" onChange={handleFileChange} style={{ width: "100%", padding: "10px", border: "1px dashed rgba(22, 19, 44, 0.2)", borderRadius: "12px", backgroundColor: "rgba(22, 19, 44, 0.02)", cursor: "pointer", color: "#16132c" }}/>
+                        {selectedFile && <small style={{ color: "#10b981", display: "block", marginTop: "6px", fontWeight: "600" }}>📎 Selected File: {selectedFile.name}</small>}
+                      </label>
+                    )}
+
+                    <div style={{ marginTop: '16px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '16px', border: '1px solid rgba(22, 19, 44, 0.1)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div>
+                          <strong style={{ display: 'block', fontSize: '14px', color: '#16132c' }}>Add to Calendar</strong>
+                          <small style={{ color: '#888', display: 'block', marginTop: '2px', fontSize: '12px' }}>Display this item directly on your calendar view.</small>
+                        </div>
+                        <input type="checkbox" checked={addToCalendar} onChange={(e) => setAddToCalendar(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#16132c' }}/>
+                      </div>
+
+                      {addToCalendar && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '14px' }}>
+                          <div className="form-row">
+                            <label className="form-field">
+                              <span>Plan Date</span>
+                              <input type="date" required value={planDate} onChange={(event) => setPlanDate(event.target.value)}/>
+                            </label>
+                            <label className="form-field">
+                              <span>Plan Time</span>
+                              <input type="time" required value={time} onChange={(event) => setTime(event.target.value)}/>
+                            </label>
+                          </div>
+
+                          {/* Multi-Day Selector (Pic 2 style) */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#888', letterSpacing: '1px' }}>
+                              {language === "tr" ? "TEKRARLANACAK GÜNLER" : "REPEAT DAYS OF THE WEEK"}
+                            </span>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginTop: '4px' }}>
+                              {[
+                                { label: language === "tr" ? "Pz" : "S", value: 0 },
+                                { label: language === "tr" ? "Pt" : "M", value: 1 },
+                                { label: language === "tr" ? "Sa" : "T", value: 2 },
+                                { label: language === "tr" ? "Ça" : "W", value: 3 },
+                                { label: language === "tr" ? "Pe" : "T", value: 4 },
+                                { label: language === "tr" ? "Cu" : "F", value: 5 },
+                                { label: language === "tr" ? "Ct" : "S", value: 6 },
+                              ].map((day) => {
+                                const isSelected = selectedDays.includes(day.value);
+                                return (
+                                  <button
+                                    key={day.value}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (isSelected) {
+                                        if (selectedDays.length > 1) {
+                                          setSelectedDays(selectedDays.filter((d) => d !== day.value));
+                                        }
+                                      } else {
+                                        setSelectedDays([...selectedDays, day.value].sort());
+                                      }
+                                    }}
+                                    style={{
+                                      width: '38px',
+                                      height: '38px',
+                                      borderRadius: '50%',
+                                      border: 'none',
+                                      fontSize: '13px',
+                                      fontWeight: '700',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s ease',
+                                      backgroundColor: isSelected ? '#16132c' : 'rgba(22, 19, 44, 0.05)',
+                                      color: isSelected ? '#ffffff' : '#16132c',
+                                      boxShadow: isSelected ? '0 4px 10px rgba(22,19,44,0.25)' : 'none'
+                                    }}
+                                  >
+                                    {day.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {editor.kind === "plan" && (
+                  <>
+                    <div className="form-row">
+                      <label className="form-field"><span>Day</span><input type="date" required value={planDate} onChange={(event) => setPlanDate(event.target.value)}/></label>
+                      <label className="form-field"><span>Time</span><input type="time" required value={time} onChange={(event) => setTime(event.target.value)}/></label>
+                    </div>
+                    <RepeatControls repeat={repeat} count={repeatCount} start={planDate || date} language={language} editingSeries={!!initialData.seriesId} onRepeat={setRepeat} onCount={setRepeatCount}/>
+                  </>
+                )}
+
+                {(editor.kind === "plan" || editor.kind === "target") && (
+                  <div style={{ padding: "12px", backgroundColor: "rgba(139, 92, 246, 0.05)", borderRadius: "12px", border: "1px solid rgba(139, 92, 246, 0.15)", marginTop: "12px" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontWeight: "600", color: "#16132c", fontSize: "13px" }}>
+                      <input
+                        type="checkbox"
+                        checked={remindPhone}
+                        onChange={async (e) => {
+                          const checked = e.target.checked;
+                          setRemindPhone(checked);
+                          if (checked) {
+                            await requestNotificationPermission();
+                          }
+                        }}
+                        style={{ width: "18px", height: "18px", accentColor: "#8b5cf6" }}
+                      />
+                      <span>🔔 {language === "tr" ? "Telefondan Bildirim / Hatırlatıcı Al" : "Get Phone Reminder"}</span>
+                    </label>
+
+                    {remindPhone && (
+                      <div style={{ marginTop: "10px" }}>
+                        <label className="form-field">
+                          <span>{language === "tr" ? "Hatırlatma Zamanı" : "Reminder Timing"}</span>
+                          <select value={reminderTime} onChange={(e) => setReminderTime(e.target.value)}>
+                            <option value="at_time">{language === "tr" ? "Etkinlik / Görev zamanında" : "At time of event / task"}</option>
+                            <option value="5_min_before">{language === "tr" ? "5 dakika önce" : "5 minutes before"}</option>
+                            <option value="10_min_before">{language === "tr" ? "10 dakika önce" : "10 minutes before"}</option>
+                            <option value="15_min_before">{language === "tr" ? "15 dakika önce" : "15 minutes before"}</option>
+                            <option value="30_min_before">{language === "tr" ? "30 dakika önce" : "30 minutes before"}</option>
+                            <option value="1_hour_before">{language === "tr" ? "1 saat önce" : "1 hour before"}</option>
+                            <option value="1_day_before">{language === "tr" ? "1 gün önce" : "1 day before"}</option>
+                          </select>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {editor.kind === "habit" && (
+                  <>
+                    <label className="form-field">
+                      <span>Unit / Target <small>Optional</small></span>
+                      <input value={unit} onChange={(event) => setUnit(event.target.value)} placeholder="e.g. 20 mins, 5 pages, 8 glasses"/>
+                    </label>
+                    <RepeatControls repeat={repeat} count={repeatCount} start={planDate || date} language={language} editingSeries={!!initialData.seriesId} onRepeat={setRepeat} onCount={setRepeatCount}/>
+                  </>
+                )}
+
+                {editor.kind === "note" && (
+                  <label className="checkbox-field" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                    <input type="checkbox" checked={pinned} onChange={(event) => setPinned(event.target.checked)}/>
+                    <span>Pin this thought to the top of your notes</span>
+                  </label>
+                )}
               </>
             )}
 
