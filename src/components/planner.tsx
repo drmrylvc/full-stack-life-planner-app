@@ -87,13 +87,15 @@ export default function Planner() {
     setQuickAdd(false);
     setEditor({ kind, areaId: selectedArea || areaId });
   }
-  function edit(item: PlannerItem & { isJournal?: boolean; journalDate?: string }) {
+  function edit(incoming: any) {
     closePopovers();
-    const isJ = item.isJournal || (item as any).isJournal || item.data?.isJournal || item.kind === "note" || item.title?.toLowerCase().includes("journal");
-    const jDate = item.journalDate || (item as any).journalDate || item.data?.date || date;
+    if (!incoming) return;
+    const isJ = !!(incoming.isJournal || incoming.data?.isJournal || incoming.kind === "note" || incoming.title?.toLowerCase().includes("journal"));
+    const jDate = incoming.journalDate || incoming.data?.date || date;
+    const resolvedItem = incoming.id && !incoming.id.startsWith("temp-") ? incoming : (incoming.item || null);
     setEditor({
-      kind: item.kind,
-      item,
+      kind: incoming.kind || "note",
+      item: resolvedItem,
       isJournal: isJ,
       journalDate: isJ ? jDate : undefined
     });

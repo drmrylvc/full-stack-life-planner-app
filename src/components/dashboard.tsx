@@ -591,16 +591,16 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
           const existingJournal = items.find((item: any) => item.kind === "note" && (item.title?.includes(selectedDateStr) || item.data.date === selectedDateStr || item.data.isJournal));
 
           const handleOpenJournal = () => {
-            const targetJournal: PlannerItem = existingJournal || {
-              id: "temp-" + Date.now(),
-              kind: "note",
-              title: `Journal - ${selectedDateStr}`,
-              areaId: null,
-              data: { date: selectedDateStr, description: "", pinned: true, isJournal: true },
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            };
-            onEdit({ ...targetJournal, isJournal: true, journalDate: selectedDateStr } as any);
+            if (existingJournal) {
+              onEdit({ ...existingJournal, isJournal: true, journalDate: selectedDateStr } as any);
+            } else {
+              onEdit({
+                kind: "note",
+                isJournal: true,
+                journalDate: selectedDateStr,
+                item: null
+              } as any);
+            }
           };
 
           return (
