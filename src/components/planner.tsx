@@ -358,7 +358,7 @@ export default function Planner() {
           }}
         />
       : <EditorDialog
-          key={editor.item?.id || editor.area?.id || editor.kind}
+          key={editor.item?.id || editor.area?.id || (editor.isJournal ? `journal-${editor.journalDate || ""}` : editor.kind)}
           editor={editor}
           workspace={workspace}
           date={date}

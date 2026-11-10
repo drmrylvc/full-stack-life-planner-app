@@ -59,13 +59,14 @@ export const dataSchema = z.object({
   seriesId: z.string().uuid().optional(),
   repeatStartDate: dateSchema.optional(),
   repeatIndex: z.number().int().min(0).max(MAX_REPEATS).optional(),
-}).strict();
+  isJournal: z.boolean().optional(),
+}).passthrough();
 
 export const itemInputSchema = z.object({
   title: z.string().trim().min(1, "Give this a name first.").max(200),
   areaId: areaIdSchema.default(null),
   data: dataSchema.default({}),
-}).strict();
+}).passthrough();
 
 export const itemPatchSchema = z.object({
   title: z.string().trim().min(1, "Give this a name first.").max(200).optional(),
