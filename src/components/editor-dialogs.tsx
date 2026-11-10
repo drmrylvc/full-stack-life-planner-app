@@ -99,12 +99,11 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
 
   const isJournal = !!(
     editor.isJournal ||
+    editor.kind === "note" ||
     editor.journalDate ||
     initialData.isJournal ||
-    (editor.kind === "note" && (
-      title?.toLowerCase().includes("journal") ||
-      editor.item?.title?.toLowerCase().includes("journal")
-    ))
+    title?.toLowerCase().includes("journal") ||
+    editor.item?.title?.toLowerCase().includes("journal")
   );
   const journalDateStr = editor.journalDate || editor.item?.data?.date || (title?.startsWith("Journal - ") ? title.replace("Journal - ", "") : date);
 

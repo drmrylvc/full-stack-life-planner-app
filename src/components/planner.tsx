@@ -87,7 +87,15 @@ export default function Planner() {
     setQuickAdd(false);
     setEditor({ kind, areaId: selectedArea || areaId });
   }
-  function edit(item: PlannerItem) { closePopovers(); setEditor({ kind: item.kind, item }); }
+  function edit(item: PlannerItem & { isJournal?: boolean; journalDate?: string }) {
+    closePopovers();
+    setEditor({
+      kind: item.kind,
+      item,
+      isJournal: item.isJournal || (item as any).isJournal || item.data?.isJournal || item.kind === "note",
+      journalDate: item.journalDate || (item as any).journalDate || item.data?.date
+    });
+  }
   function openArea(area: LifeArea) { navigate("areas", area.id); }
 
   useEffect(() => {
