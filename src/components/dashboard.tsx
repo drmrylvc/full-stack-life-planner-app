@@ -1,12 +1,93 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, BookOpen, CalendarDays, ChevronDown, FolderOpen, Image as ImageIcon, ListChecks, Pencil, Plus, Trash2, Zap } from "lucide-react";
+import { BarChart3, BookOpen, CalendarDays, ChevronDown, FolderOpen, Image as ImageIcon, ListChecks, Palette, Pencil, Plus, Trash2, Zap } from "lucide-react";
 import { localeFor, translate } from "@/lib/i18n";
 import { addDays, dateISO, formatDate, getWeeklyAreaReport, humanSize, parseDate, progressForArea } from "@/lib/utils";
 import ItemMenu from "./item-menu";
-import { areaTheme } from "@/lib/theme";
+import { AREA_THEMES, areaTheme } from "@/lib/theme";
+import type { AreaColor } from "@/lib/types";
 import { CheckButton, FileGlyph } from "./ui";
+
+const COLOR_OPTIONS: { name: AreaColor; label: string; bg: string }[] = [
+  { name: "lavender", label: "Lavender / Purple", bg: "#8b5cf6" },
+  { name: "mint", label: "Mint / Emerald", bg: "#10b981" },
+  { name: "rose", label: "Rose / Pink", bg: "#f43f5e" },
+  { name: "blue", label: "Blue / Azure", bg: "#3b82f6" },
+  { name: "peach", label: "Peach / Coral", bg: "#f97316" },
+  { name: "sand", label: "Slate / Dark", bg: "#243044" }
+];
+
+function SectionColorPicker({ current, onChange, language }: { current: AreaColor; onChange: (c: AreaColor) => void; language?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <button
+        type="button"
+        title={language === "tr" ? "Bölüm Rengini Değiştir" : "Change Section Color"}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((prev) => !prev);
+        }}
+        style={{
+          background: "rgba(0,0,0,0.05)",
+          border: "1px solid rgba(0,0,0,0.08)",
+          borderRadius: "50%",
+          width: "28px",
+          height: "28px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          color: "#64748b",
+          transition: "all 0.2s ease"
+        }}
+      >
+        <Palette size={14} />
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "34px",
+            right: 0,
+            zIndex: 20,
+            backgroundColor: "#ffffff",
+            padding: "8px",
+            borderRadius: "14px",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+            border: "1px solid #e2e8f0",
+            display: "flex",
+            gap: "6px"
+          }}
+        >
+          {COLOR_OPTIONS.map((c) => (
+            <button
+              key={c.name}
+              type="button"
+              title={c.label}
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange(c.name);
+                setOpen(false);
+              }}
+              style={{
+                width: "22px",
+                height: "22px",
+                borderRadius: "50%",
+                backgroundColor: c.bg,
+                border: current === c.name ? "2px solid #16132c" : "none",
+                cursor: "pointer",
+                boxShadow: "0 2px 5px rgba(0,0,0,0.1)"
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Dashboard({ workspace, pending, date, onView, onCreate, onEdit, onEditArea, onToggle, onArea, onFile, onDelete, onQuickAdd, language }: any) {
 
@@ -23,6 +104,36 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
 
   const [planView, setPlanView] = useState<"daily" | "weekly" | "monthly" | null>(null);
   const [selectedMonthlyDate, setSelectedMonthlyDate] = useState<string>(date || dateISO());
+
+  const [sectionColors, setSectionColors] = useState<Record<string, AreaColor>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("ezlife26-section-colors");
+        if (saved) return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return { calendar: "lavender", tasks: "mint", journal: "rose" };
+  });
+
+  const changeSectionColor = (sectionKey: string, color: AreaColor) => {
+    setSectionColors((prev) => {
+      const next = { ...prev, [sectionKey]: color };
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("ezlife26-section-colors", JSON.stringify(next));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      return next;
+    });
+  };
+
+  const calTheme = AREA_THEMES[sectionColors.calendar || "lavender"];
+  const tasksTheme = AREA_THEMES[sectionColors.tasks || "mint"];
+  const journalTheme = AREA_THEMES[sectionColors.journal || "rose"];
 
   const habits = items.filter((item: any) => item.kind === "habit");
   const doneHabits = habits.filter((item: any) => item.kind === "habit" && item.data.history?.includes(dateISO())).length;
@@ -195,15 +306,22 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
       </section>
 
       <div className="snap-stack">
-        <div className="snap-section-head" style={{ marginTop: "12px", marginBottom: "4px" }}>
+        <div className="snap-section-head" style={{ marginTop: "12px", marginBottom: "6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <h2>{language === "tr" ? "TAKVİM" : "CALENDAR"}</h2>
             <p>{language === "tr" ? "Gününüz ve takviminiz" : "Your daily, weekly & monthly schedule"}</p>
           </div>
-          <button onClick={() => onCreate("plan")}>+ {language === "tr" ? "Plan Ekle" : "Add Plan"}</button>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <SectionColorPicker
+              current={sectionColors.calendar || "lavender"}
+              onChange={(color) => changeSectionColor("calendar", color)}
+              language={language}
+            />
+            <button onClick={() => onCreate("plan")}>+ {language === "tr" ? "Plan Ekle" : "Add Plan"}</button>
+          </div>
         </div>
 
-        <Accordion icon={<CalendarDays size={20} color="#ffffff"/>} iconClass="calendar" iconBg="linear-gradient(135deg, #8b5cf6, #6366f1)" title={t("dailyPlan")} subtitle={language === "tr" ? "Gününüz ve takviminiz" : "Your daily, weekly & monthly schedule"} open={open.plan} onToggle={() => toggle("plan")} addLabel={language === "tr" ? "Plan Ekle" : "Add Plan"} onAdd={() => onCreate("plan")}>
+        <Accordion icon={<CalendarDays size={20} color="#ffffff"/>} iconClass="calendar" iconBg={calTheme.gradient} title={t("dailyPlan")} subtitle={language === "tr" ? "Gününüz ve takviminiz" : "Your daily, weekly & monthly schedule"} open={open.plan} onToggle={() => toggle("plan")} addLabel={language === "tr" ? "Plan Ekle" : "Add Plan"} onAdd={() => onCreate("plan")}>
           <div style={{ display: "flex", gap: "6px", marginBottom: planView ? "16px" : "4px", borderBottom: planView ? "1px solid rgba(0,0,0,0.05)" : "none", paddingBottom: "10px" }}>
             {["daily", "weekly", "monthly"].map((mode) => (
               <button
@@ -446,15 +564,22 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
           )}
         </Accordion>
 
-        <div className="snap-section-head" style={{ marginTop: "16px", marginBottom: "4px" }}>
+        <div className="snap-section-head" style={{ marginTop: "16px", marginBottom: "6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <h2>{language === "tr" ? "GÖREVLER" : "TASKS"}</h2>
             <p>{t("tasksHint")}</p>
           </div>
-          <button onClick={() => { setOpen((current: any) => ({ ...current, chores: true })); onCreate("chore"); }}>+ {t("addTask")}</button>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <SectionColorPicker
+              current={sectionColors.tasks || "mint"}
+              onChange={(color) => changeSectionColor("tasks", color)}
+              language={language}
+            />
+            <button onClick={() => { setOpen((current: any) => ({ ...current, chores: true })); onCreate("chore"); }}>+ {t("addTask")}</button>
+          </div>
         </div>
 
-        <Accordion icon={<ListChecks size={20} color="#ffffff"/>} iconClass="tasks" iconBg="linear-gradient(135deg, #10b981, #059669)" title={t("tasks")} subtitle={t("tasksHint")} badge={`${doneChores}/${chores.length}`} open={open.chores} onToggle={() => toggle("chores")} addLabel={t("addTask")} onAdd={() => { setOpen((current: any) => ({ ...current, chores: true })); onCreate("chore"); }}>
+        <Accordion icon={<ListChecks size={20} color="#ffffff"/>} iconClass="tasks" iconBg={tasksTheme.gradient} title={t("tasks")} subtitle={t("tasksHint")} badge={`${doneChores}/${chores.length}`} open={open.chores} onToggle={() => toggle("chores")} addLabel={t("addTask")} onAdd={() => { setOpen((current: any) => ({ ...current, chores: true })); onCreate("chore"); }}>
           {chores.length ? chores.map((item: any) => (
             <Row key={item.id} item={item} pending={pending} meta={areaFor(item)?.name || t("tasks")} onEdit={onEdit} onToggle={onToggle} onDelete={onDelete} language={language}/>
           )) : <Empty text={t("noTasks")} action={t("addTask")} onAction={() => onCreate("chore")}/>}
@@ -488,20 +613,27 @@ export default function Dashboard({ workspace, pending, date, onView, onCreate, 
 
           return (
             <div>
-              <div className="snap-section-head" style={{ marginTop: "16px", marginBottom: "4px" }}>
+              <div className="snap-section-head" style={{ marginTop: "16px", marginBottom: "6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
                   <h2>{language === "tr" ? "KİŞİSEL GÜNLÜK" : "PERSONAL JOURNAL"}</h2>
                   <p>{formatDate(selectedDateStr, { weekday: "long", month: "long", day: "numeric" }, localeFor(language))}</p>
                 </div>
-                <button onClick={handleOpenJournal}>
-                  {existingJournal ? (language === "tr" ? "Günlüğü Aç" : "Open Journal") : (language === "tr" ? "Günlük Yaz" : "Write Journal")}
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <SectionColorPicker
+                    current={sectionColors.journal || "rose"}
+                    onChange={(color) => changeSectionColor("journal", color)}
+                    language={language}
+                  />
+                  <button onClick={handleOpenJournal}>
+                    {existingJournal ? (language === "tr" ? "Günlüğü Aç" : "Open Journal") : (language === "tr" ? "Günlük Yaz" : "Write Journal")}
+                  </button>
+                </div>
               </div>
 
               <div style={{ backgroundColor: "#ffffff", borderRadius: "20px", padding: "18px 20px", border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(32, 28, 64, 0.05)", marginBottom: "14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    <span style={{ width: "42px", height: "42px", borderRadius: "14px", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #ec4899, #f43f5e)", color: "#ffffff", flexShrink: 0, boxShadow: "0 4px 12px rgba(236, 72, 153, 0.25)" }}>
+                    <span style={{ width: "42px", height: "42px", borderRadius: "14px", display: "inline-flex", alignItems: "center", justifyContent: "center", background: journalTheme.gradient, color: "#ffffff", flexShrink: 0, boxShadow: "0 4px 12px rgba(0,0,0,0.12)" }}>
                       <BookOpen size={20} color="#ffffff"/>
                     </span>
                     <div>

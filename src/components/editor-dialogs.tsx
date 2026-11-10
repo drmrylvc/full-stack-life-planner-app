@@ -97,7 +97,15 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
   const label = RESOURCE_LABELS[editor.kind];
   const Icon = editor.kind === "target" ? Target : editor.kind === "plan" ? CalendarDays : editor.kind === "chore" ? ListChecks : editor.kind === "file" ? FolderOpen : editor.kind === "note" ? StickyNote : editor.kind === "habit" ? Zap : Sprout;
 
-  const isJournal = !!(editor.isJournal || (editor.kind === "note" && (title?.startsWith("Journal - ") || editor.item?.title?.startsWith("Journal - ") || initialData.isJournal)));
+  const isJournal = !!(
+    editor.isJournal ||
+    editor.journalDate ||
+    initialData.isJournal ||
+    (editor.kind === "note" && (
+      title?.toLowerCase().includes("journal") ||
+      editor.item?.title?.toLowerCase().includes("journal")
+    ))
+  );
   const journalDateStr = editor.journalDate || editor.item?.data?.date || (title?.startsWith("Journal - ") ? title.replace("Journal - ", "") : date);
 
   function readFile(file?: File) {
