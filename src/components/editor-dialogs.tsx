@@ -105,7 +105,7 @@ export function EditorDialog({ editor, workspace, date, language = "en", onClose
     title?.toLowerCase().includes("journal") ||
     editor.item?.title?.toLowerCase().includes("journal")
   );
-  const journalDateStr = editor.journalDate || editor.item?.data?.date || (title?.startsWith("Journal - ") ? title.replace("Journal - ", "") : date);
+  const journalDateStr = editor.journalDate || initialData.date || (title?.startsWith("Journal - ") ? title.replace("Journal - ", "") : date) || dateISO();
 
   function readFile(file?: File) {
     if (!file) return;

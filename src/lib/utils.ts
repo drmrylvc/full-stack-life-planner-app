@@ -4,8 +4,12 @@ export function dateISO(date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export function parseDate(value: string): Date {
-  return new Date(`${value}T12:00:00`);
+export function parseDate(value?: string | null): Date {
+  if (!value || typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date();
+  }
+  const d = new Date(`${value}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? new Date() : d;
 }
 
 export function addDays(value: string, amount: number): string {

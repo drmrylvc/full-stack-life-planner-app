@@ -89,11 +89,13 @@ export default function Planner() {
   }
   function edit(item: PlannerItem & { isJournal?: boolean; journalDate?: string }) {
     closePopovers();
+    const isJ = item.isJournal || (item as any).isJournal || item.data?.isJournal || item.kind === "note" || item.title?.toLowerCase().includes("journal");
+    const jDate = item.journalDate || (item as any).journalDate || item.data?.date || date;
     setEditor({
       kind: item.kind,
       item,
-      isJournal: item.isJournal || (item as any).isJournal || item.data?.isJournal || item.kind === "note",
-      journalDate: item.journalDate || (item as any).journalDate || item.data?.date
+      isJournal: isJ,
+      journalDate: isJ ? jDate : undefined
     });
   }
   function openArea(area: LifeArea) { navigate("areas", area.id); }
