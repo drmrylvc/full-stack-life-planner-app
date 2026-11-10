@@ -4,7 +4,7 @@ import { useId, useRef, useState, type FormEvent } from "react";
 import { ArrowDownToLine, ArrowRight, CalendarDays, Check, FileText, FolderOpen, ImagePlus, ListChecks, Pencil, Plus, Sprout, StickyNote, Target, Trash2, UploadCloud, Zap } from "lucide-react";
 import { AREA_COLORS, RESOURCE_LABELS, type AreaColor, type AreaInput, type EditorState, type ItemData, type ItemInput, type ItemKind, type LifeArea, type PlannerItem, type RepeatFrequency, type Workspace } from "@/lib/types";
 import type { Lang } from "@/lib/i18n";
-import { translate } from "@/lib/i18n";
+import { localeFor, translate } from "@/lib/i18n";
 import { clearSeries, MAX_REPEATS, remainingRepeats, supportsRepeat } from "@/lib/recurrence";
 import { areaTheme } from "@/lib/theme";
 import { addDays, humanSize, parseDate, dateISO } from "@/lib/utils";
